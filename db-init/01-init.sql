@@ -1,0 +1,6 @@
+CREATE DATABASE keycloak;
+CREATE DATABASE geoapp;
+
+\connect geoapp
+
+CREATE EXTENSION IF NOT EXISTS POSTGIS;
