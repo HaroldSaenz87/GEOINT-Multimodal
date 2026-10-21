@@ -20,6 +20,8 @@ pydantic==2.14.1
     # via sqlmodel
 pydantic-core==2.50.1
     # via pydantic
+python-dotenv==1.2.4
+    # via geoint-multimodal
 sqlalchemy==2.0.55 ; python_full_version < '3.11'
     # via
     #   geoalchemy2
