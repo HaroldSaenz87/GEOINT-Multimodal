@@ -1,6 +1,6 @@
 # Test that chat history is saved and reloaded
 
-# Run: uv run python -m backend.test_chat_service
+# Run: uv run python -m tests.test_chat_service
 # Uses made-up test users (keycloak ids starting with "test-")
 # Safe to run more than once: it deletes its own test chats at the end
 

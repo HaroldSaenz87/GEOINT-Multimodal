@@ -2,7 +2,7 @@
 
 # Reads DATABASE_URL from env 
 # Give the app two helper:
-#       create_table() -> creates any missing tables
+#       create_tables() -> creates any missing tables
 #       get_session() -> opens a session for reading or writing rows
 
 
@@ -20,7 +20,7 @@ load_dotenv()
 # db address
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set. Copy env.example to env and fil it in.")
+    raise RuntimeError("DATABASE_URL is not set. Copy env.example to env and fill it in.")
 
 # manage connection to db
 # pre ping check connection still works before using it

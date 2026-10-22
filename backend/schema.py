@@ -112,7 +112,7 @@ class Chat(SQLModel, table=True):
     # name shown in chat list
     title: str = "New chat"
 
-    # summary of older messages which is sent to the model for ong chats
+    # summary of older messages which is sent to the model for long chats
     summary: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     # when the chat was started

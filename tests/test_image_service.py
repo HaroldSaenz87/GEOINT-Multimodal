@@ -1,6 +1,6 @@
 # Test that images are saved, listed, found by location, and deleted
 
-# Run: uv run python -m backend.test_image_service
+# Run: uv run python -m tests.test_image_service
 # Uses the test users from test_chat_service (test-bob, test-tom)
 # Safe to run more than once: it deletes its own test images at the end
 
