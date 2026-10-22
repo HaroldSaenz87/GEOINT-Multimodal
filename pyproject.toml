@@ -1,0 +1,31 @@
+#------------------------------------------------------------------------------------------------------
+# Python settings and lib
+#
+# uv users: uv sync                               (install)
+#           uv run                                (run)
+#
+# pip users: pip install -r requirements.txt      (install)
+
+# After changing dependencies, regenerate requirements.txt:
+#   uv export --format requirements-txt --no-hashes --no-emit-project -o requirements.txt
+#------------------------------------------------------------------------------------------------------
+
+
+
+
+[project]
+name = "geoint-multimodal"
+version = "0.1.0"
+description = "Post-disaster building damage assessment with chat"
+requires-python = ">=3.10"                  # works on python 3.10 or newer
+dependencies = [
+    "sqlmodel>=0.0.22",                     # tables as python classes
+    "psycopg[binary]>=3.2",                 # connects python to PostgreSQL
+    "geoalchemy2>=0.15",                    # PostGIS map shapes in SQLModel
+    "pillow>=10",                           # opening, checking, resizing images
+    "python-dotenv>=1.2.4",                 # reads settings from .env
+    "alembic>=1.20.1",
+]
+
+[tool.uv]
+package = false             # app, not a library; uv only installs dependencies

@@ -1,0 +1,32 @@
+# ============================================================
+# .gitignore - files and folders Git should never upload
+# ============================================================
+
+# ---------- VERY VERY SECRET STUFF ----------
+# Only .env.example goes on GitHub.
+.env
+.env.*
+*.local
+
+# EXCEPT THIS
+!.env.example
+
+# ---------- User data ----------
+# Snapshot and upload image files + thumbnails created by the app.
+# This is user data so it can get large.
+data/
+
+# ---------- Python ----------
+# Temporary files Python creates automatically when code runs
+__pycache__/
+*.pyc
+# Folder where uv installs libraries
+.venv/
+
+# ---------- OS and editor files ----------
+# Junk files Mac and Windows create in folders
+.DS_Store
+Thumbs.db
+# Personal editor settings (VS Code, PyCharm)
+.vscode/
+.idea/
