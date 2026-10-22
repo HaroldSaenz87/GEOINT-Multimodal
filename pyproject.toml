@@ -24,6 +24,7 @@ dependencies = [
     "geoalchemy2>=0.15",                    # PostGIS map shapes in SQLModel
     "pillow>=10",                           # opening, checking, resizing images
     "python-dotenv>=1.2.4",                 # reads settings from .env
+    "alembic>=1.20.1",
 ]
 
 [tool.uv]
