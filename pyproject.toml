@@ -25,6 +25,7 @@ dependencies = [
     "pillow>=10",                           # opening, checking, resizing images
     "python-dotenv>=1.2.4",                 # reads settings from .env
     "alembic>=1.20.1",
+    "pgvector>=0.5.1",
 ]
 
 [tool.uv]

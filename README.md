@@ -30,9 +30,10 @@ cp .env.example .env
 ```
 Open `.env` and set your own password. Use the **same** password in `POSTGRES_PASSWORD` and inside `DATABASE_URL`.
 
-### 2. Start the database
+### 2. Start the database (PostgreSQL + PostGIS + pgvector)
 ```bash
-docker compose up -d
+docker compose up -d --build    # first time or after db/Dockerfile changes
+docker compose up -d            # every other time
 ```
 
 ### 3. Install Python packages
@@ -64,3 +65,5 @@ Should end with `OK`.
 **pip users:** leave out `uv run` from the commands above (with `.venv` activated).
 
 **To stop the database:** `docker compose down`
+
+---

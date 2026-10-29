@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
 from geoalchemy2 import Geometry
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, Index, Text
 from sqlmodel import Field, SQLModel
 
@@ -90,6 +91,11 @@ class Image(SQLModel, table=True):
 
     # set when the user deletes it
     deleted_at: Optional[datetime] = None
+
+
+    # remoteCLIP numbers describing whats in the image... should hold 768 numbers per image
+    # none until the model processes the image for "search by descriptio"
+    embedding: Any = Field(default=None, sa_column=Column(Vector(768)))
 
 
 

@@ -11,6 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 import sqlmodel
 import geoalchemy2
+import pgvector.sqlalchemy
 ${imports if imports else ""}
 
 # revision identifiers, used by Alembic.

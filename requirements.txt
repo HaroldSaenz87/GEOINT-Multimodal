@@ -14,6 +14,8 @@ markupsafe==3.0.4
     # via mako
 packaging==26.3
     # via geoalchemy2
+pgvector==0.5.1
+    # via geoint-multimodal
 pillow==12.3.0 ; python_full_version < '3.11'
     # via geoint-multimodal
 pillow==13.0.0 ; python_full_version >= '3.11'
