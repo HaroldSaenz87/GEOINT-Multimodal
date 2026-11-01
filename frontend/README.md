@@ -1,6 +1,6 @@
-# Frontend foundation
+# React frontend
 
-React + Vite + TypeScript, with a "Hello, world!" heading and no API integration yet.
+React, Vite, TypeScript, Tailwind CSS, and shadcn/ui.
 
 ## Requirements
 
@@ -13,15 +13,14 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. A "Hello, world!" heading confirms React is running.
+Open http://127.0.0.1:5173.
 Vite uses a fixed port and reports an error if 5173 is already occupied.
 To use a different port, run `npm run dev -- --port 5174`.
 
 ## Development proxy
 
 Start FastAPI separately from the repository root. Requests beginning with
-`/api` are forwarded unchanged to http://127.0.0.1:8000. FastAPI has no endpoints
-yet, so these requests currently return its JSON 404 response.
+`/api` are forwarded unchanged to http://127.0.0.1:8000.
 
 To change the target, copy `.env.example` to `.env.local` and edit
 `API_PROXY_TARGET`, then restart Vite. Use http://127.0.0.1:8001 when the backend
@@ -31,7 +30,6 @@ Vite's `VITE_` prefix and be declared in `src/vite-env.d.ts`; those values are
 public and must never contain secrets.
 
 The development proxy is not included in production builds or `vite preview`.
-Production API routing and hosting are deferred.
 
 ## Checks and build
 
@@ -46,21 +44,44 @@ npm run preview -- --host 127.0.0.1
 directory. `preview` serves that build locally; it is not a production server.
 Oxlint provides the starter's React and TypeScript lint rules.
 
+## Styling and components
+
+Tailwind CSS runs through `@tailwindcss/vite`. Add utility classes directly to
+JSX. Global styles and shared theme tokens live in `src/index.css`.
+
+The theme uses neutral colors and locally bundled Geist fonts. Light colors are
+defined in `:root`; dark colors are defined in `.dark`. Apply the `dark` class
+to the document's `<html>` element to select the dark theme. Semantic utilities
+such as `bg-background`, `text-foreground`, and `border-border` use these tokens.
+
+`components.json` configures shadcn/ui for React with the Radix Nova preset,
+TypeScript, and CSS variables. To add a component, run from `frontend/`:
+
+```bash
+npx shadcn add button
+```
+
+The CLI writes component source to `src/components/ui/` and installs the
+dependencies it needs. Review the generated files before committing them.
+Shared helpers belong in `src/lib/`; `@/lib/utils` exports the `cn` class-name
+helper. Hooks belong in `src/hooks/`.
+
 ## Structure
 
 ```text
 frontend/
   index.html          # HTML document and React mount element
   vite.config.ts      # React plugin, source alias, and development proxy
+  components.json     # shadcn/ui preset, stylesheet, and aliases
   src/
     main.tsx          # mounts React in StrictMode
-    App.tsx           # Hello, world! application root
-    index.css         # reserved for Part 3 global styles
+    App.tsx           # application root
+    index.css         # Tailwind imports, global styles, and theme tokens
     vite-env.d.ts     # Vite environment typing
-    components/       # reserved for future components
-    lib/              # reserved for future shared helpers
+    components/ui/    # shadcn/ui component source
+    hooks/            # shared React hooks
+    lib/utils.ts      # shared class-name helper
 ```
 
 `@/` resolves to `src/` in both Vite and TypeScript. Dependencies are locked in
-`package-lock.json`. Tailwind and shadcn/ui are reserved for Part 3. Routing,
-API clients, data fetching, and application screens are deferred.
+`package-lock.json`.
