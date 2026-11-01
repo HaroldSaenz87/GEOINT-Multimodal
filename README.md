@@ -10,6 +10,7 @@ Post-disaster building damage assessment from satellite imagery, with a chat int
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/) (or pip)
 - Git
+- Node.js 22.12+ and npm (for the frontend)
 
 ---
 
@@ -58,6 +59,33 @@ backend/
 
 Database setup remains separate. Starting the web server does not run migrations,
 create tables, or import the existing database services.
+
+## Run the React + Vite foundation
+
+In a second terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. A simple "Hello, world!" heading confirms React is
+running. There are no application screens, navigation, or API calls yet.
+
+Vite forwards requests under `/api` to `http://127.0.0.1:8000`, preserving the
+path. If FastAPI is using port 8001, create `frontend/.env.local` containing:
+
+```dotenv
+API_PROXY_TARGET=http://127.0.0.1:8001
+```
+
+Restart Vite after changing this setting. The proxy is only for development;
+production API routing will be configured when deployment is added. FastAPI
+still has no endpoints, so a proxied `/api` request returns its expected 404.
+
+See [frontend/README.md](frontend/README.md) for the folder structure and checks.
+Tailwind and shadcn/ui will be configured in Part 3.
 
 ## Run the database and existing services
 
