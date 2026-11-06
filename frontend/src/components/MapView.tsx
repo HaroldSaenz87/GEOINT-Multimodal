@@ -31,7 +31,7 @@ export default function MapView() {
             <TileLayer
                 url={ESRI_WORLD_IMAGERY}
                 attribution="Tiles &copy; Esri and its data providers"
-                maxZoom={19}
+                maxZoom={21}
             />
 
             {/* distance scale bottom left */}
