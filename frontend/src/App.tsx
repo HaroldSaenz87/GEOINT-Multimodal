@@ -1,3 +1,16 @@
+
+import MapView from "./components/MapView";
+
 export default function App() {
-  return <h1>Hello, world!</h1>
+
+
+  return(
+
+    <main className="relative h-screen w-screen overflow-hidden">
+      
+      <MapView />
+
+    </main>
+
+  )
 }
