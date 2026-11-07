@@ -19,36 +19,44 @@ export default function HelpPanel() {
 
             {open && (
 
-                <Card className="w-full" size="sm">
+                <Card className="w-full gap-0 py-0 shadow-md">
 
-                
 
-                    <CardHeader>
+                    {/* gray strip with a line under it */}
+                    <CardHeader className="items-center border-b bg-muted/50 py-3">
 
-                        <CardTitle>
+                        <CardTitle className="text-sm">
                             Help
                         </CardTitle>
 
-                        <CardAction>
-                            
-                            <Button variant="ghost" size="icon-xs" aria-label="Close help" onClick={() => setOpen(false)} >
-                                <X />
+                        <CardAction className="self-center">
+                            {/* round white close button with a thin border */}
+                            <Button
+                                variant="outline"
+                                size="icon-xs"
+                                className="cursor-pointer rounded-full"
+                                aria-label="Close help"
+                                onClick={() => setOpen(false)}
+                            >
+                                <X className="size-3.5" />
                             </Button>
-                        
+
                         </CardAction>
 
                     </CardHeader>
 
-                    <CardContent className="flex flex-col gap-3">
+                    
+                    <CardContent className="flex flex-col gap-3 py-4">
 
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm leading-snug text-muted-foreground">
                             Quick and useful information here. Use the "Full Guide" button to view more.
                         </p>
 
-                        <Button variant="outline" className="w-full">
+                        {/* the light gray button */}
+                        <Button variant="outline" size="lg" className="w-full cursor-pointer bg-muted/50 hover:bg-foreground/10">
                             Full Guide
                         </Button>
-                    
+
                     </CardContent>
 
                 </Card>

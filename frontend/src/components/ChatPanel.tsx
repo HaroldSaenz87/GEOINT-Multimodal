@@ -7,6 +7,10 @@ import { Input } from "./ui/input";
 import { SAMPLE_CHATS } from "@/sampleData";
 import type { Message } from "@/types"; 
 
+const TAB_PILL =
+    "flex-none cursor-pointer rounded-full border-border bg-background px-3.5 text-foreground/70 " +
+    "data-[state=active]:border-primary data-[state=active]:bg-primary " +
+    "data-[state=active]:text-primary-foreground data-[state=active]:shadow-none";
 
 export default function ChatPanel() {
 
@@ -66,27 +70,27 @@ export default function ChatPanel() {
 
     return (
 
-        <Card className="absolute right-4 bottom-10 z-1000 flex h-96 w-85 flex-col gap-0 p-0">
+        <Card className="absolute right-4 bottom-10 z-1000 flex h-96 w-85 flex-col gap-0 overflow-hidden p-0 shadow-md">
             
-            <Tabs defaultValue="chat" className="flex min-h-0 flex-1 flex-col">
+            <Tabs defaultValue="chat" className="flex min-h-0 flex-1 flex-col gap-0">
                 
                 {/* Chat History tabs + close button */}
-                <div className="flex items-center justify-between border-b p-2">
+                <div className="flex items-center justify-between border-b bg-muted/50 p-3">
                     
-                    <TabsList>
+                    <TabsList className="gap-2 bg-transparent p-0">
                         
-                        <TabsTrigger value="chat">
+                        <TabsTrigger value="chat" className={TAB_PILL}>
                             Chat
                         </TabsTrigger>
                         
-                        <TabsTrigger value="history">
+                        <TabsTrigger value="history" className={TAB_PILL}>
                             History
                         </TabsTrigger>
                     
                     </TabsList>
                     
-                    <Button variant="ghost" size="icon-xs" aria-label="Close chat" onClick={() => setOpen(false)}>
-                        <X />
+                    <Button variant="outline" size="icon-sm" className="cursor-pointer rounded-full" aria-label="Close chat" onClick={() => setOpen(false)}>
+                        <X className="size-3.5"/>
                     </Button>
                 
                 </div>
@@ -117,15 +121,16 @@ export default function ChatPanel() {
                     </div>
 
                     {/* message box + send button */}
-                    <form onSubmit={handleSend} className="flex gap-2 border-t p-2">
+                    <form onSubmit={handleSend} className="flex gap-2 border-t bg-muted/50 p-3">
                         
                         <Input
+                            className="h-10 rounded-xl bg-background px-3"
                             placeholder="Type a message..."
                             value={draft}
                             onChange={(e) => setDraft(e.target.value)} // update draft as the user types
                         />
 
-                        <Button type="submit" size="icon" aria-label="Send message">
+                        <Button type="submit" size="icon-lg" className="size-10 cursor-pointer rounded-xl" aria-label="Send message">
                             <ArrowUp />
                         </Button>
 
@@ -140,7 +145,7 @@ export default function ChatPanel() {
 
                         <button
                             key={chat.id}
-                            className="flex w-full flex-col rounded-md px-3 py-2 text-left hover:bg-muted"
+                            className="flex w-full cursor-pointer flex-col rounded-md px-3 py-2 text-left hover:bg-muted"
                         >
                             <span className="text-sm font-medium">{chat.title}</span>
 
