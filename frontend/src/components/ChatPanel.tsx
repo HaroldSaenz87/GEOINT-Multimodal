@@ -1,28 +1,41 @@
+// Chat button
+
 import { useEffect, useRef, useState, type SubmitEvent } from "react"
 import { Button } from "./ui/button";
-import { ArrowUp, MessageSquare, X } from "lucide-react";
+import { ArrowUp, ImageIcon, MessageSquare, Plus, X } from "lucide-react";
 import { Card } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Input } from "./ui/input";
-import { SAMPLE_CHATS } from "@/sampleData";
+import { SAMPLE_CHATS, SAMPLE_IMAGES } from "@/sampleData";
 import type { Message } from "@/types"; 
 
+// pill style for tabs
 const TAB_PILL =
     "flex-none cursor-pointer rounded-full border-border bg-background px-3.5 text-foreground/70 " +
     "data-[state=active]:border-primary data-[state=active]:bg-primary " +
     "data-[state=active]:text-primary-foreground data-[state=active]:shadow-none";
 
-export default function ChatPanel() {
 
+type ChatPanelProps = {
+    onAddImages?: () => void
+}
+
+export default function ChatPanel({ onAddImages }: ChatPanelProps) {
+
+    // panel showing
     const [open, setOpen] = useState(true);
 
+    // messages in current chat
     const [messages, setMessages] = useState<Message[]>([]);
 
+    // typed in the message box
     const [draft, setDraft] = useState('');
 
 
+    // points to the message list so you can scroll it
     const listRef = useRef<HTMLDivElement>(null);
 
+    // every time messages change scroll to the newest one
     useEffect(() => {
         const list = listRef.current;
         if (list) {
@@ -30,6 +43,7 @@ export default function ChatPanel() {
         }
     }, [messages]);
 
+    // runs on enter or the send button
     function handleSend(event: SubmitEvent<HTMLFormElement>){
 
 
@@ -50,6 +64,7 @@ export default function ChatPanel() {
         setDraft('');
     }
 
+    // collapsed 
     if(!open){
 
         return(
@@ -86,6 +101,10 @@ export default function ChatPanel() {
                         <TabsTrigger value="history" className={TAB_PILL}>
                             History
                         </TabsTrigger>
+
+                        <TabsTrigger value="library" className={TAB_PILL}>
+                            Library
+                        </TabsTrigger>
                     
                     </TabsList>
                     
@@ -101,6 +120,13 @@ export default function ChatPanel() {
                     {/* message list */}
                     <div ref={listRef} className="flex flex-1 flex-col gap-4 overflow-y-auto p-3 scrollbar-thin">
                         
+                        {/* hint shown only while the chat is empty */}
+                        {messages.length === 0 && (
+
+                            <p className="m-auto max-w-56 text-center text-sm text-muted-foreground">
+                                Click + to add images, then ask a question about them.
+                            </p>
+                        )}
                         {messages.map((m) => (
 
                             <div
@@ -123,6 +149,12 @@ export default function ChatPanel() {
                     {/* message box + send button */}
                     <form onSubmit={handleSend} className="flex gap-2 border-t bg-muted/50 p-3">
                         
+
+                        <Button type="button" variant="outline" size="icon-lg" className="size-10 cursor-pointer rounded-xl" aria-label="Add images" onClick={onAddImages}>
+                            <Plus />
+                        </Button>
+
+
                         <Input
                             className="h-10 rounded-xl bg-background px-3"
                             placeholder="Type a message..."
@@ -156,6 +188,38 @@ export default function ChatPanel() {
                         </button>
                     ))}
 
+
+                </TabsContent>
+
+                <TabsContent value="library" className="flex-1 overflow-y-auto p-3 scrollbar-thin">
+
+                    {/* grid 2 */}
+                    <div className="grid grid-cols-2 gap-3">
+
+                        {SAMPLE_IMAGES.map((img) => (
+
+                            <button key={img.id} className="flex cursor-pointer flex-col gap-1.5 rounded-lg p-1 text-left hover:bg-muted">
+
+                                {/* square preview; an image icon until real thumbnails exist */}
+                                <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border bg-muted/50">
+                                    {img.thumb_url
+                                        ? <img src={img.thumb_url} alt="" className="size-full object-cover" />
+                                        : <ImageIcon className="size-6 text-muted-foreground" />}
+                                </div>
+
+                                {/* "Snapshot" or "Upload", and the date it was saved */}
+                                <span className="px-0.5 text-xs font-medium capitalize">
+                                    {img.source}
+                                </span>
+
+                                <span className="px-0.5 text-xs text-muted-foreground">
+                                    {new Date(img.created_at).toLocaleDateString()}
+                                </span>
+
+                            </button>
+                        ))}
+
+                    </div>
 
                 </TabsContent>
 
