@@ -24,7 +24,7 @@ export default function MapView() {
             center={START_CENTER}
             zoom={START_ZOOM}
             zoomControl={false}   // gets rid of the + - buttons
-            className="h-full w-full"  // fill whole parent
+            className="isolate h-full w-full"  // fill whole parent
         >
 
             {/* satellite imagey layer */}

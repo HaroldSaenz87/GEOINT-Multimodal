@@ -1,69 +1,83 @@
+// Help button that opens a how to use popup in the middle of the screen
 
-import { useState } from 'react'
-import { Button } from './ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from './ui/card';
-import { X } from 'lucide-react';
+import { History, ImagePlus, Images, Map, MessageSquare, X } from "lucide-react";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Button } from "./ui/button";
+
+// the instructions shown in the popup will be icon, title, and text
+const STEP = [
+    { icon: Map, title: 'Explore the map', text: 'Drag to move around. Scroll or pinch to zoom in on an area.'},
+    { icon: ImagePlus, title: 'Add images', text: 'Click + in the chat to select an area on the map, upload your own images, or pick from your library.'},
+    { icon: MessageSquare, title: 'Ask about the damage', text: ' Send your images to the chat and ask questions, like "How many buildings are damaged?"'},
+    { icon: History, title: 'History', text: 'Reopen any past chat from the History tab.'},
+    { icon: Images, title: 'Library', text: 'Your saved snapshots and uploads. Reuse or delete them anytime.'},
+]
 
 export default function HelpPanel() {
 
-    const [open, setOpen] = useState(false);
-
-
     return (
 
-        <div className="absolute top-4 right-4 z-1000 flex w-72 flex-col items-end gap-2">
-            
-            <Button size="lg" className="cursor-pointer rounded-full px-4" onClick={() => setOpen(!open)} >
-                Help
-            </Button>
+        // dialog handles open and close
+        <Dialog>
 
-            {open && (
+            {/* dark help pill pinned top right */}
+            <DialogTrigger asChild>
 
-                <Card className="w-full gap-0 py-0 shadow-md">
+                <Button size="lg" className="absolute top-4 right-4 z-10 rounded-full px-4 cursor-pointer">
+                    Help
+                </Button>
 
+            </DialogTrigger>
 
-                    {/* gray strip with a line under it */}
-                    <CardHeader className="items-center border-b bg-muted/50 py-3">
+            {/* popup in the middle of the screen */}
+            <DialogContent className="sm:max-w-md" showCloseButton={false}>
 
-                        <CardTitle className="text-sm">
-                            Help
-                        </CardTitle>
+                <DialogClose asChild>
 
-                        <CardAction className="self-center">
-                            {/* round white close button with a thin border */}
-                            <Button
-                                variant="outline"
-                                size="icon-xs"
-                                className="cursor-pointer rounded-full"
-                                aria-label="Close help"
-                                onClick={() => setOpen(false)}
-                            >
-                                <X className="size-3.5" />
-                            </Button>
+                    <Button variant="outline" size="icon-sm" className="absolute top-3 right-3 rounded-full cursor-pointer hover:border-destructive/40 hover:bg-destructive/20 hover:text-destructive" aria-label="Close help">
+                        <X className="size-3.5" />
+                    </Button>
 
-                        </CardAction>
+                </DialogClose>
 
-                    </CardHeader>
+                
+                <DialogHeader className="pr-8 mb-3">
 
+                    <DialogTitle className="font-semibold">
+                        How to use
+                    </DialogTitle>
                     
-                    <CardContent className="flex flex-col gap-3 py-4">
+                    <DialogDescription>
+                        Check satellite images for building damage and ask questions about them.
+                    </DialogDescription>
+                
+                </DialogHeader>
 
-                        <p className="text-sm leading-snug text-muted-foreground">
-                            Quick and useful information here. Use the "Full Guide" button to view more.
-                        </p>
+                {/* row per step will be icon on the left, title, text on the right */}
+                <ol className="flex flex-col gap-5">
 
-                        {/* the light gray button */}
-                        <Button variant="outline" size="lg" className="w-full cursor-pointer bg-muted/50 hover:bg-foreground/10">
-                            Full Guide
-                        </Button>
+                    {STEP.map((step) => (
+                        <li key={step.text} className="flex gap-3">
+                            
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted/50">
+                                <step.icon className="size-4"/>
+                            </span>
 
-                    </CardContent>
+                            <div>
+                                <p className="font-semibold">
+                                    {step.title}
+                                </p>
+                                <p className="text-muted-foreground">
+                                    {step.text}
+                                </p>
+                            </div>
+                        </li>
+                    ))}
 
-                </Card>
+                </ol>
 
+            </DialogContent>
 
-            )}
-        
-        </div>
+        </Dialog>
     );
 }

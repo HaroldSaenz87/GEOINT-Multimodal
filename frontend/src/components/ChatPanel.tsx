@@ -56,7 +56,7 @@ export default function ChatPanel() {
 
             <Button
                 size="icon-lg"
-                className="absolute right-4 bottom-10 z-1000 cursor-pointer size-11 rounded-full"
+                className="absolute right-4 bottom-10 z-10 cursor-pointer size-11 rounded-full"
                 aria-label="Open chat"
                 onClick={() => setOpen(true)}
             >
@@ -70,7 +70,7 @@ export default function ChatPanel() {
 
     return (
 
-        <Card className="absolute right-4 bottom-10 z-1000 flex h-96 w-85 flex-col gap-0 overflow-hidden p-0 shadow-md">
+        <Card className="absolute right-4 bottom-10 z-10 flex h-96 w-85 flex-col gap-0 overflow-hidden p-0 shadow-md">
             
             <Tabs defaultValue="chat" className="flex min-h-0 flex-1 flex-col gap-0">
                 
@@ -89,7 +89,7 @@ export default function ChatPanel() {
                     
                     </TabsList>
                     
-                    <Button variant="outline" size="icon-sm" className="cursor-pointer rounded-full" aria-label="Close chat" onClick={() => setOpen(false)}>
+                    <Button variant="outline" size="icon-sm" className="cursor-pointer rounded-full hover:border-destructive/40 hover:bg-destructive/20 hover:text-destructive" aria-label="Close chat" onClick={() => setOpen(false)}>
                         <X className="size-3.5"/>
                     </Button>
                 
