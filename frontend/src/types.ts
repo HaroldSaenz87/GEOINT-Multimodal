@@ -8,11 +8,24 @@ export type Chat = {
   updated_at: string // "2026-11-06T15:00:00Z"
 }
 
+// one saved image (links to the images table)
+export type MessageImage = {
+  id: number
+  thumb_url: string | null       // small preview; null = no preview yet (sample data)
+}
+
+
+export type ImagePair = {
+  before: MessageImage | null    // null is no before image
+  after: MessageImage            // always required
+}
+
 // one chat message (messages table)
 export type Message = {
   id: number
-  role: 'user' | 'assistant' // only these two values are allowed
+  role: 'user' | 'assistant'
   content: string
+  pair?: ImagePair               // ? = optional; most messages have no images
 }
 
 // one saved image in the library (images table)
@@ -23,3 +36,4 @@ export type LibraryImage = {
   capture_date: string | null   // when the satellite took it, if known
   created_at: string            // when it was saved in the app
 }
+

@@ -1,7 +1,7 @@
 
-import ChatPanel from "./components/ChatPanel";
-import HelpPanel from "./components/HelpPanel";
-import MapView from "./components/MapView";
+import ChatPanel from "./components/chat/ChatPanel";
+import HelpPanel from "./components/help/HelpPanel";
+import MapView from "./components/map/MapView";
 
 export default function App() {
 

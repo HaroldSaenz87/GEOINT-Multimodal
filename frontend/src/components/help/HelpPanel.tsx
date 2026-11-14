@@ -1,8 +1,8 @@
 // Help button that opens a how to use popup in the middle of the screen
 
 import { History, ImagePlus, Images, Map, MessageSquare, X } from "lucide-react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Button } from "./ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { Button } from "../ui/button";
 
 // the instructions shown in the popup will be icon, title, and text
 const STEP = [
@@ -57,6 +57,7 @@ export default function HelpPanel() {
                 <ol className="flex flex-col gap-5">
 
                     {STEP.map((step) => (
+
                         <li key={step.text} className="flex gap-3">
                             
                             <span className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted/50">
@@ -67,11 +68,15 @@ export default function HelpPanel() {
                                 <p className="font-semibold">
                                     {step.title}
                                 </p>
+
                                 <p className="text-muted-foreground">
                                     {step.text}
                                 </p>
+                            
                             </div>
+
                         </li>
+
                     ))}
 
                 </ol>
@@ -80,4 +85,5 @@ export default function HelpPanel() {
 
         </Dialog>
     );
+    
 }

@@ -152,6 +152,9 @@ class Message(SQLModel, table= True):
 
     # image this message is about
     image_id: Optional[int] = Field(default=None, foreign_key="images.id")
+
+    # before image for a before/after comparison; None = after image only
+    before_image_id: Optional[int] = Field(default=None, foreign_key="images.id")
     
     # when it was sent... this can show messages in order
     created_at: datetime = Field(default_factory=now)
@@ -171,6 +174,9 @@ class Analysis(SQLModel, table= True):
     id: Optional[int] = Field(default=None, primary_key=True)
     
     image_id: int = Field(foreign_key="images.id", index=True)
+
+    # before image used for comparison; None = after-only analysis
+    before_image_id: Optional[int] = Field(default=None, foreign_key="images.id")
     
     # overall damage percentage
     damage_pct: Optional[float] = None
