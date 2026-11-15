@@ -6,16 +6,15 @@ import { MessageSquare, X } from "lucide-react";
 import ChatComposer from "./ChatComposer";
 import ChatHistory from "./ChatHistory";
 import ChatMessages from "./ChatMessages";
-import ImageLibrary from "../library-chat/ImageLibrary";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { SAMPLE_CHATS, SAMPLE_IMAGES, SAMPLE_MESSAGES } from "@/sampleData";
+import { SAMPLE_CHATS, SAMPLE_MESSAGES } from "@/sampleData";
 import type { Chat, ImagePair, Message } from "@/types";
 
 // pill style for tabs
 const TAB_PILL =
-    "flex-none cursor-pointer rounded-full border-border bg-background px-3.5 text-foreground/70 " +
+    "flex-none cursor-pointer rounded-full border-border bg-background px-4.5 text-foreground/70 " +
     "data-[state=active]:border-primary data-[state=active]:bg-primary " +
     "data-[state=active]:text-primary-foreground data-[state=active]:shadow-none";
 
@@ -28,15 +27,15 @@ type ChatPanelProps = {
 
 export default function ChatPanel({ onAddImages }: ChatPanelProps) {
 
-    const [open, setOpen] = useState(true);                       // is the panel showing?
+    const [open, setOpen] = useState(true);                       // is the panel showing
 
     const [tab, setTab] = useState("chat");                       // which tab is showing
-    const [chats, setChats] = useState<Chat[]>(SAMPLE_CHATS);     // all chats, newest first
+    const [chats, setChats] = useState<Chat[]>(SAMPLE_CHATS);     // all chats but newest first
     
     const [messagesByChat, setMessagesByChat] =
-        useState<Record<number, Message[]>>(SAMPLE_MESSAGES);     // each chat's messages, by chat id
+        useState<Record<number, Message[]>>(SAMPLE_MESSAGES);     // each chat's messages by chat id
     const [activeChatId, setActiveChatId] = useState<number | null>(null); // open chat (null = new chat)
-        const [attached, setAttached] = useState<ImagePair | null>(null); 
+    const [attached, setAttached] = useState<ImagePair | null>(null); 
 
     // messages and title of the open chat
     const messages = activeChatId !== null ? messagesByChat[activeChatId] ?? [] : [];
@@ -156,7 +155,7 @@ export default function ChatPanel({ onAddImages }: ChatPanelProps) {
             
             <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
 
-                {/* gray header: 3 tab pills + round close button */}
+                {/* gray header: 2 tab pills + round close button */}
                 <div className="flex items-center justify-between border-b bg-muted/50 p-3">
                     
                     <TabsList className="gap-2 bg-transparent p-0">
@@ -165,7 +164,7 @@ export default function ChatPanel({ onAddImages }: ChatPanelProps) {
                     
                         <TabsTrigger value="history" className={TAB_PILL}>History</TabsTrigger>
                     
-                        <TabsTrigger value="library" className={TAB_PILL}>Library</TabsTrigger>
+                        
                     
                     </TabsList>
                     
@@ -203,11 +202,6 @@ export default function ChatPanel({ onAddImages }: ChatPanelProps) {
                         onNewChat={handleNewChat}
                     />
 
-                </TabsContent>
-
-                {/* LIBRARY TAB */}
-                <TabsContent value="library" className="flex-1 overflow-y-auto p-3 scrollbar-thin">
-                    <ImageLibrary images={SAMPLE_IMAGES} />
                 </TabsContent>
 
             </Tabs>

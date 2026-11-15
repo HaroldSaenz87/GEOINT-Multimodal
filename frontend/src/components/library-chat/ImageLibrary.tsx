@@ -32,9 +32,9 @@ export default function ImageLibrary({ images }: ImageLibraryProps) {
                     </div>
 
                     {/* "Snapshot" or "Upload", and the date it was saved */}
-                    <span className="px-0.5 text-xs font-medium capitalize">{img.source}</span>
+                    <span className="px-0.5 text-sm font-medium capitalize">{img.source}</span>
                     
-                    <span className="px-0.5 text-xs text-muted-foreground">
+                    <span className="px-0.5 text-sm text-muted-foreground">
                         {new Date(img.created_at).toLocaleDateString()}
                     </span>
 
