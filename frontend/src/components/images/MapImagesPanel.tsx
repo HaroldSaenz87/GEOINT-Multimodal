@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import UploadTab, { type UploadedPair } from '@/components/images/UploadTab'  
 import ImageLibrary from '../library-chat/ImageLibrary'  
 import { SAMPLE_IMAGES } from '@/sampleData'      
+import SelectionTab from './SelectionTab'
+import type { MapArea } from '@/types'
 const TAB =
     'cursor-pointer data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-base'
 
@@ -15,16 +17,24 @@ const CLOSE_X =
     'cursor-pointer rounded-full hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive'
 
 type MapImagesPanelProps = {
+    area: MapArea | null                // area selected on the map (After image)
+    selecting: boolean                  // is the snapshot tool on?
+    onSelectArea: () => void            // turn the snapshot tool on
+    onClearArea: () => void
     onClose: () => void
 }
 
-export default function MapImagesPanel({ onClose }: MapImagesPanelProps) {
+export default function MapImagesPanel({ area, selecting, onSelectArea, onClearArea, onClose }: MapImagesPanelProps) {
 
     const [tab, setTab] = useState('selection')     
     
     const [uploads, setUploads] = useState<UploadedPair>({ before: null, after: null }) 
 
-    const ready = tab === 'upload' && uploads.after !== null   // Save/Send allowed once there's an After image
+    const [beforeDate, setBeforeDate] = useState<Date | undefined>(undefined)
+
+    const ready =
+        (tab === 'selection' && area !== null) ||
+        (tab === 'upload' && uploads.after !== null)
 
     return (
 
@@ -65,7 +75,15 @@ export default function MapImagesPanel({ onClose }: MapImagesPanelProps) {
 
                 {/* content scrolls if it gets long */}
                 <TabsContent value="selection" className="flex-1 overflow-y-auto p-4 scrollbar-thin">
-                    <p className="text-sm text-muted-foreground">Map selection goes here.</p>          
+                    
+                    <SelectionTab
+                        area={area}
+                        selecting={selecting}
+                        onSelectArea={onSelectArea}
+                        beforeDate={beforeDate}
+                        onBeforeDateChange={setBeforeDate}
+                        onClearArea={onClearArea}
+                    />
                 </TabsContent>
 
                 <TabsContent value="upload" className="flex-1 overflow-y-auto p-4 scrollbar-thin">
@@ -73,7 +91,7 @@ export default function MapImagesPanel({ onClose }: MapImagesPanelProps) {
                 </TabsContent>
                 
                 <TabsContent value="library" className="flex-1 overflow-y-auto p-4 scrollbar-thin">
-                    <p className="text-sm text-muted-foreground"><ImageLibrary images={SAMPLE_IMAGES} /> </p>                
+                    <ImageLibrary images={SAMPLE_IMAGES} />               
                 </TabsContent>
             
             </Tabs>

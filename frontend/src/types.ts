@@ -37,3 +37,13 @@ export type LibraryImage = {
   created_at: string            // when it was saved in the app
 }
 
+// an area selected on the map (a snapshot box), in latitude / longitude
+// matches what the back end needs to make the snapshot (images.area + zoom)
+export type MapArea = {
+  south: number                 // bottom edge (latitude)
+  west: number                  // left edge (longitude)
+  north: number                 // top edge (latitude)
+  east: number                  // right edge (longitude)
+  zoom: number                  // map zoom when it was selected (sets the image detail)
+}
+
