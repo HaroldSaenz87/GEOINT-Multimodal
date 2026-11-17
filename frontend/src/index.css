@@ -128,3 +128,15 @@
     @apply font-sans;
   }
 }
+
+.wayback-select {
+  --background: #262626;
+  --foreground: #f5f5f5;
+  --popover: #262626;
+  --popover-foreground: #f5f5f5;
+  --input: #505050;
+  --accent: #3b3b3b;
+  --accent-foreground: #fff;
+  --muted-foreground: #c1c1c1;
+  --ring: #83cfbf;
+}

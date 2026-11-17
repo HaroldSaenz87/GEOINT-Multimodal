@@ -1,3 +1,32 @@
+import { useRef, useState } from 'react'
+import ImageryChat from '@/components/ImageryChat'
+import SanibelMap from '@/components/SanibelMap'
+import type { DrawState, MapControls } from '@/components/SanibelMap'
+import { INITIAL_IMAGERY } from '@/lib/imagery'
+import type { AreaSelection } from '@/lib/imagery'
+
 export default function App() {
-  return <h1>Hello, world!</h1>
+  const map = useRef<MapControls>(null)
+  const [area, setArea] = useState<AreaSelection | null>(null)
+  const [imagery, setImagery] = useState(INITIAL_IMAGERY)
+  const [drawState, setDrawState] = useState<DrawState>('loading')
+
+  return (
+    <main className="grid h-dvh grid-cols-[17rem_minmax(0,1fr)] overflow-hidden max-sm:grid-cols-1 max-sm:grid-rows-[40dvh_minmax(0,1fr)]">
+      <ImageryChat
+        area={area}
+        drawState={drawState}
+        onDraw={() => map.current?.toggleRectangle()}
+        onClear={() => map.current?.clearSelection()}
+      />
+      <SanibelMap
+        ref={map}
+        imagery={imagery}
+        onImageryChange={(side, release) => setImagery((current) => ({ ...current, [side]: release }))}
+        drawState={drawState}
+        onDrawState={setDrawState}
+        onAreaChange={setArea}
+      />
+    </main>
+  )
 }

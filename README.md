@@ -62,7 +62,7 @@ create tables, or import the existing database services.
 
 ## Run the React frontend
 
-In a second terminal:
+The mockup runs in the browser with public Esri imagery. From the repository root:
 
 ```bash
 cd frontend
@@ -70,7 +70,10 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`.
+Open `http://127.0.0.1:5173`. Drag the divider to compare the Wayback releases.
+The date menus show local releases for the current map view. Choose **Select area**
+in the composer and drag a rectangle on the map to select it. **Upload imagery**
+attaches a file to your message. **History** shows conversations saved in the browser.
 
 Vite forwards requests under `/api` to `http://127.0.0.1:8000`, preserving the
 path. If FastAPI is using port 8001, create `frontend/.env.local` containing:
