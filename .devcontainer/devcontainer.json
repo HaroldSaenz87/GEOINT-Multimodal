@@ -1,0 +1,35 @@
+// Dev container for GitHub Codespaces (and VS Code "Reopen in Container").
+// Gives every teammate the same setup: Python 3.12 + uv, Node 22, and Docker
+// for the PostGIS database. See .devcontainer/post-create.sh for setup steps.
+{
+  "name": "GEOINT Multimodal",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+
+  "features": {
+    // Docker inside the codespace, so `docker compose up -d` works as in the README
+    "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false },
+    // Node.js for the React/Vite frontend (README requires 22.12+)
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+
+  // Runs once, when the codespace is first created
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // Runs every time the codespace starts (after being stopped)
+  "postStartCommand": "docker compose up -d",
+
+  "forwardPorts": [5173, 8000],
+  "portsAttributes": {
+    "5173": { "label": "Frontend (Vite)", "onAutoForward": "openBrowser" },
+    "8000": { "label": "Backend (FastAPI)", "onAutoForward": "notify" },
+    "5432": { "label": "PostGIS", "onAutoForward": "silent" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  }
+}

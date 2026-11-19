@@ -2,13 +2,11 @@ import { useRef, useState } from 'react'
 import ImageryChat from '@/components/ImageryChat'
 import SanibelMap from '@/components/SanibelMap'
 import type { DrawState, MapControls } from '@/components/SanibelMap'
-import { INITIAL_IMAGERY } from '@/lib/imagery'
 import type { AreaSelection } from '@/lib/imagery'
 
 export default function App() {
   const map = useRef<MapControls>(null)
   const [area, setArea] = useState<AreaSelection | null>(null)
-  const [imagery, setImagery] = useState(INITIAL_IMAGERY)
   const [drawState, setDrawState] = useState<DrawState>('loading')
 
   return (
@@ -21,8 +19,6 @@ export default function App() {
       />
       <SanibelMap
         ref={map}
-        imagery={imagery}
-        onImageryChange={(side, release) => setImagery((current) => ({ ...current, [side]: release }))}
         drawState={drawState}
         onDrawState={setDrawState}
         onAreaChange={setArea}

@@ -70,8 +70,9 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Drag the divider to compare the Wayback releases.
-The date menus show local releases for the current map view. Choose **Select area**
+Open `http://127.0.0.1:5173`. The comparison starts with the newest local Wayback
+release on the After side and the previous release on the Before side. Drag the
+divider to compare them. The date menus update as you pan or zoom. Choose **Select area**
 in the composer and drag a rectangle on the map to select it. **Upload imagery**
 attaches a file to your message. **History** shows conversations saved in the browser.
 
@@ -134,4 +135,60 @@ Should end with `OK`.
 
 **To stop the database:** `docker compose down`
 
----
+## Add something to the schema
+
+### 1. Get the latest code and make a branch:
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b <your-branch-name>
+   docker compose up -d
+   ```
+
+### 2. Make sure your database is up to date:
+
+   **uv:**
+   ```bash
+   uv run alembic upgrade head
+   ```
+   **pip** (with `.venv` activated):
+   ```bash
+   alembic upgrade head
+   ```
+
+### 3. Add your column or table in `backend/schema.py`:
+   ```python
+   new_column: Optional[str] = None
+   ```
+
+### 4. Create the migration:
+
+   **uv:**
+   ```bash
+   uv run alembic revision --autogenerate -m "add new_column"
+   ```
+   **pip:**
+   ```bash
+   alembic revision --autogenerate -m "add new_column"
+   ```
+
+### 5. Apply it:
+
+   **uv:**
+   ```bash
+   uv run alembic upgrade head
+   ```
+   **pip:**
+   ```bash
+   alembic upgrade head
+   ```
+
+### 6. Commit and push:
+   ```bash
+   git add backend/schema.py migrations/versions/
+   git commit -m "Add new_column"
+   git push -u origin <your-branch-name>
+   ```
+   Then open a PR.
+
+After it's merged, everyone runs `uv run alembic upgrade head` (uv) or `alembic upgrade head` (pip).

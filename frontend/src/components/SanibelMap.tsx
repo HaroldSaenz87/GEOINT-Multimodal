@@ -14,7 +14,7 @@ import { getWaybackItemsWithLocalChanges, lat2tile, long2tile } from '@esri/wayb
 import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { formatReleaseDate, INITIAL_IMAGERY } from '@/lib/imagery'
+import { FALLBACK_IMAGERY, formatReleaseDate } from '@/lib/imagery'
 import type { AreaSelection, ImageryRelease, ImagerySide } from '@/lib/imagery'
 
 const CENTER = [-82.097, 26.426]
@@ -26,7 +26,8 @@ function waybackTileUrl(release: number) {
 function waybackLayer(side: ImagerySide) {
   return new WebTileLayer({
     title: side === 'before' ? 'Before imagery' : 'After imagery',
-    urlTemplate: waybackTileUrl(INITIAL_IMAGERY[side].releaseNum),
+    urlTemplate: waybackTileUrl(FALLBACK_IMAGERY[side].releaseNum),
+    visible: false,
     copyright: 'Esri World Imagery Wayback | Esri, Vantor, Earthstar Geographics, and the GIS User Community',
   })
 }
@@ -169,8 +170,6 @@ type Props = {
   drawState: DrawState
   onDrawState: (state: DrawState) => void
   onAreaChange: (area: AreaSelection | null) => void
-  imagery: Record<ImagerySide, ImageryRelease>
-  onImageryChange: (side: ImagerySide, release: ImageryRelease) => void
 }
 
 function areaFromGraphic(graphic: Graphic): AreaSelection | null {
@@ -188,11 +187,13 @@ function areaFromGraphic(graphic: Graphic): AreaSelection | null {
   }
 }
 
-export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange, imagery, onImageryChange }: Props) {
+export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange }: Props) {
   const mapRef = useRef<ArcgisMap>(null)
   const afterPickerRef = useRef<HTMLDivElement>(null)
   const sketchRef = useRef<SketchViewModel>(null)
+  const initialReleasesSelected = useRef(false)
   const [layers] = useState(createMap)
+  const [imagery, setImagery] = useState(FALLBACK_IMAGERY)
   const [releaseGroups, setReleaseGroups] = useState<ReleaseGroups | null>(null)
 
   useEffect(() => {
@@ -216,7 +217,21 @@ export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange, 
         updateOnGraphicClick: false,
       })
       sketchRef.current = sketch
-      releaseWatcher = watchLocalReleases(element.view, setReleaseGroups)
+      releaseWatcher = watchLocalReleases(element.view, (groups) => {
+        // Keep the active comparison when panning or zooming refreshes the menus.
+        if (groups && !initialReleasesSelected.current) {
+          const [after, before = after] = groups.flatMap(([, releases]) => releases)
+          if (after) {
+            layers.changeRelease('before', before.releaseNum)
+            layers.changeRelease('after', after.releaseNum)
+            setImagery({ before, after })
+            initialReleasesSelected.current = true
+          }
+          layers.before.visible = true
+          layers.after.visible = true
+        }
+        setReleaseGroups(groups)
+      })
       listener = sketch.on('create', ({ state, graphic }) => {
         if (state === 'complete' && graphic) {
           const area = areaFromGraphic(graphic)
@@ -284,7 +299,7 @@ export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange, 
 
   function selectRelease(side: ImagerySide, release: ImageryRelease) {
     layers.changeRelease(side, release.releaseNum)
-    onImageryChange(side, release)
+    setImagery((current) => ({ ...current, [side]: release }))
   }
 
   return (
