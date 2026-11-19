@@ -6,7 +6,9 @@
 
 
 from sqlalchemy import inspect, text
-from backend.db import engine
+from backend.db import get_engine
+
+engine = get_engine()
 
 # connect and run quick queries
 with engine.connect() as conn:

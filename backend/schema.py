@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from geoalchemy2 import Geometry
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, Index, Text
+from sqlalchemy import JSON, Column, Index, Text
 from sqlmodel import Field, SQLModel
 
 def now() -> datetime:
@@ -152,6 +152,10 @@ class Message(SQLModel, table= True):
 
     # image this message is about
     image_id: Optional[int] = Field(default=None, foreign_key="images.id")
+
+    client_message_id: Optional[str] = Field(default=None, max_length=36, index=True)
+    attachment_name: Optional[str] = Field(default=None, max_length=255)
+    comparison: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     
     # when it was sent... this can show messages in order
     created_at: datetime = Field(default_factory=now)

@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.chats import router as chats_router
 from backend.core.config import get_settings
 
 
@@ -13,7 +14,6 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         docs_url="/docs",
         redoc_url=None,
-        openapi_url=None,
     )
     application.add_middleware(
         CORSMiddleware,
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"],
     )
+    application.include_router(chats_router)
     return application
 
 

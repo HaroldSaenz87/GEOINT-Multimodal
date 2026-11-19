@@ -16,6 +16,7 @@ export default function App() {
         drawState={drawState}
         onDraw={() => map.current?.toggleRectangle()}
         onClear={() => map.current?.clearSelection()}
+        getImagery={() => map.current?.getImagery() ?? null}
       />
       <SanibelMap
         ref={map}

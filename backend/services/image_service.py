@@ -6,6 +6,8 @@
 
 import os
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -42,7 +44,8 @@ THUMB_SIZE = (256,256)
 # SAVE
 #---------------------------------------------------------------------------------------
 
-def save_img(
+@contextmanager
+def prepare_img(
 
         # owner
         user_id: int,
@@ -67,7 +70,8 @@ def save_img(
 
         # when the imagery was taken 
         capture_date: Optional[datetime] = None,
-) -> Image:
+) -> Iterator[Image]:
+    """Keep the image files only if the caller's database transaction succeeds."""
 
     # reject anything that isn't "snapshot" or "upload"
     if source not in VALID_SOURCES:
@@ -102,15 +106,6 @@ def save_img(
     file_path = user_dir / f"{name}.png"
     thumb_path = user_dir / f"{name}_thumb.png"
 
-    # save png copy for browser and the model
-    rgb = img.convert("RGB")
-    rgb.save(file_path, "PNG")
-
-    # save a small preview for the image library 
-    thumb = rgb.copy()
-    thumb.thumbnail(THUMB_SIZE)
-    thumb.save(thumb_path, "PNG")
-
     # turn the map corners into POstGIS coordinates
     area = None
     if bounds is not None:
@@ -141,12 +136,32 @@ def save_img(
         capture_date=capture_date,
     )
 
-    # save the row to the database
-    with get_session() as session:
-        session.add(record)
-        session.commit()
+    try:
+        rgb = img.convert("RGB")
+        rgb.save(file_path, "PNG")
+        rgb.thumbnail(THUMB_SIZE)
+        rgb.save(thumb_path, "PNG")
+        yield record
+    except BaseException:
+        file_path.unlink(missing_ok=True)
+        thumb_path.unlink(missing_ok=True)
+        raise
 
-        # reload to get record.id
+
+def save_img(
+    user_id: int,
+    data: bytes,
+    source: str,
+    bounds: Optional[tuple[float, float, float, float]] = None,
+    zoom: Optional[int] = None,
+    tile_provider: Optional[str] = None,
+    pixel_size_m: Optional[float] = None,
+    capture_date: Optional[datetime] = None,
+) -> Image:
+    with get_session() as session:
+        with prepare_img(user_id, data, source, bounds, zoom, tile_provider, pixel_size_m, capture_date) as record:
+            session.add(record)
+            session.commit()
         session.refresh(record)
         return record
 

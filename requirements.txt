@@ -55,6 +55,10 @@ python-dotenv==1.2.4
     # via
     #   geoint-multimodal
     #   pydantic-settings
+python-multipart==0.0.32 ; python_full_version < '3.11'
+    # via geoint-multimodal
+python-multipart==0.0.34 ; python_full_version >= '3.11'
+    # via geoint-multimodal
 sqlalchemy==2.0.55 ; python_full_version < '3.11'
     # via
     #   alembic

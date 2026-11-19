@@ -23,27 +23,28 @@ cd GEOINT-Multimodal
 
 ---
 
-## Run the FastAPI foundation
+## Run the FastAPI chat API
 
-From the repository root:
+For chat, start PostgreSQL using the [database setup below](#run-the-database-and-existing-services).
+Then run from the repository root:
 
 ```bash
 uv sync
+uv run alembic upgrade head
 uv run uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 With pip, install `requirements.txt` in your virtual environment, then run the
 same command without `uv run`.
 
-The server starts without PostgreSQL or a `.env` file. It currently has no
-endpoints, including no `/docs`, `/redoc`, or `/openapi.json`. A request to
-`http://127.0.0.1:8000/` returns `404 Not Found`; this is expected.
+The chat API is documented at `http://127.0.0.1:8000/docs`. Starting the server
+without PostgreSQL is useful for viewing the API docs. Chat requests need the
+database and the current migration.
 
 Optional application settings are listed in `.env.example`. They use the
 `BACKEND_` prefix and are loaded from the repo-root `.env`; environment variables
 take precedence. `BACKEND_CORS_ORIGINS` must be a JSON array of origins. Its
-defaults allow the future Vite frontend on localhost port 5173. This configures
-browser access only; it does not add routes or authentication.
+defaults allow the Vite frontend on localhost port 5173.
 
 Backend structure:
 
@@ -51,18 +52,18 @@ Backend structure:
 backend/
   main.py          # application factory and Uvicorn entry point
   core/config.py   # validated application settings
-  api/             # reserved for future HTTP routes
+  api/             # chat history and message submission routes
   services/        # existing image and chat logic
   db.py            # existing database connection helpers
   schema.py        # existing SQLModel tables
 ```
 
-Database setup remains separate. Starting the web server does not run migrations,
-create tables, or import the existing database services.
+The browser keeps a session key for access to its saved chats. History follows
+that browser and site address. This setup is intended for the local team MVP.
 
 ## Run the React frontend
 
-The mockup runs in the browser with public Esri imagery. From the repository root:
+The map runs in the browser with public Esri imagery. From the repository root:
 
 ```bash
 cd frontend
@@ -73,8 +74,15 @@ npm run dev
 Open `http://127.0.0.1:5173`. The comparison starts with the newest local Wayback
 release on the After side and the previous release on the Before side. Drag the
 divider to compare them. The date menus update as you pan or zoom. Choose **Select area**
-in the composer and drag a rectangle on the map to select it. **Upload imagery**
-attaches a file to your message. **History** shows conversations saved in the browser.
+in the composer and drag a rectangle on the map to select it. Sending saves the
+message along with the selected rectangle and both Wayback release IDs and dates.
+**Upload imagery** accepts a PNG, JPEG, or TIFF up to 20 MB. The backend stores
+the uploaded image and associates it with the message. **History** reopens saved
+conversations, including their imagery context.
+
+Wayback dates identify map releases. The selected rectangle and release IDs give
+the later analysis step the inputs to fetch matching before and after imagery.
+At this stage, sending a message saves it and displays it in the conversation.
 
 Vite forwards requests under `/api` to `http://127.0.0.1:8000`, preserving the
 path. If FastAPI is using port 8001, create `frontend/.env.local` containing:
@@ -83,8 +91,8 @@ path. If FastAPI is using port 8001, create `frontend/.env.local` containing:
 API_PROXY_TARGET=http://127.0.0.1:8001
 ```
 
-Restart Vite after changing this setting. The proxy applies only to the
-development server.
+Restart Vite after changing this setting. For deployment, serve the frontend and
+route `/api` to FastAPI on the same origin.
 
 See [frontend/README.md](frontend/README.md) for the folder structure and checks.
 

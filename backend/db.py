@@ -8,6 +8,7 @@
 
 
 import os
+from functools import lru_cache
 from dotenv import load_dotenv
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -17,25 +18,23 @@ from backend import schema
 # loading env
 load_dotenv()
 
-# db address
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set. Copy env.example to env and fill it in.")
-
-# manage connection to db
-# pre ping check connection still works before using it
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+@lru_cache
+def get_engine():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is not set. Copy .env.example to .env and fill it in.")
+    return create_engine(database_url, pool_pre_ping=True)
 
 
 def create_tables() -> None:
 
     # create tables that don't exist yet but existing tables are left alone
     # Basically to make sure tables exist
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(get_engine())
 
 def get_session() -> Session:
 
     # session is one batch of work to add/read rows, then session.commit() to save
     # use it like this: with get_session() as session: ...
 
-    return Session(engine)
+    return Session(get_engine())
