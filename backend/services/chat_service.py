@@ -1,16 +1,22 @@
 # Saving and loading chat history
 # The frontend will call these functons
 
-from typing import Optional
+from contextlib import ExitStack
+from typing import Any, Optional
 from sqlalchemy import delete
-from sqlmodel import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlmodel import Session, select
 from backend.db import get_session
 from backend.schema import Chat, Image, Message, User, now
+from backend.services.image_service import prepare_img
 
 # the only allowed values for a message's role
 VALID_ROLES = {"user", "assistant"}
+UploadedImage = tuple[str, bytes]
 
 
+class ChatNotFoundError(PermissionError):
+    pass
 
 # USERS
 #-------------------------------------------------------------------------------------------
@@ -34,6 +40,11 @@ def get_or_create_user(keycloak_id: str, email: Optional[str] = None) -> User:
 
 # CHATS
 #-------------------------------------------------------------------------------------------
+def find_user_id(identity: str) -> int | None:
+    with get_session() as session:
+        return session.exec(select(User.id).where(User.keycloak_id == identity)).one_or_none()
+
+
 def create_chat(user_id: int, title: str = "New chat") -> Chat:
 
     with get_session() as session:
@@ -60,7 +71,7 @@ def _get_owned_chat(session, user_id: int, chat_id: int) -> Chat:
 
     if chat is None or chat.user_id != user_id:
 
-        raise PermissionError("Chat not found")
+        raise ChatNotFoundError("Chat not found")
 
     return chat
 
@@ -93,6 +104,76 @@ def delete_chat(user_id: int, chat_id: int) -> None:
 
 # MESSAGES
 #-----------------------------------------------------------------------------------------------------------
+def _stage_upload(session: Session, staged: ExitStack, user_id: int, attachment: UploadedImage) -> int | None:
+    image = staged.enter_context(prepare_img(user_id, attachment[1], "upload"))
+    session.add(image)
+    session.flush()
+    return image.id
+
+
+def submit_message(
+    identity: str,
+    client_message_id: str,
+    chat_id: int | None,
+    content: str,
+    comparison: dict[str, Any] | None,
+    attachment: UploadedImage | None,
+    image_pair: tuple[UploadedImage, UploadedImage] | None = None,
+) -> tuple[Chat, Message]:
+    """Create a chat if needed and save this message and its attachments together."""
+    with get_session() as session:
+        session.execute(
+            insert(User).values(keycloak_id=identity, created_at=now())
+            .on_conflict_do_nothing(index_elements=["keycloak_id"])
+        )
+        # Serialize sends for this browser, including retries from another tab.
+        user_id = session.exec(
+            select(User.id).where(User.keycloak_id == identity).with_for_update()
+        ).one()
+        saved = session.exec(
+            select(Chat, Message).join(Message, Chat.id == Message.chat_id).where(
+                Chat.user_id == user_id, Message.client_message_id == client_message_id
+            )
+        ).one_or_none()
+        if saved is not None:
+            return saved[0], saved[1]
+
+        attachment_name = attachment[0] if attachment else None
+        if chat_id is None:
+            title = (content.splitlines()[0] if content else attachment_name or "Imagery comparison")[:80]
+            chat = Chat(user_id=user_id, title=title)
+            session.add(chat)
+            session.flush()
+        else:
+            chat = _get_owned_chat(session, user_id, chat_id)
+
+        with ExitStack() as staged:
+            message = Message(
+                chat_id=chat.id,
+                role="user",
+                content=content,
+                attachment_name=attachment_name,
+                comparison=comparison,
+                client_message_id=client_message_id,
+            )
+            if attachment:
+                message.image_id = _stage_upload(session, staged, user_id, attachment)
+            if image_pair:
+                before, after = image_pair
+                message.before_image_id = _stage_upload(session, staged, user_id, before)
+                message.after_image_id = _stage_upload(session, staged, user_id, after)
+                message.before_image_name = before[0]
+                message.after_image_name = after[0]
+
+            chat.updated_at = message.created_at
+            session.add(message)
+            session.commit()
+
+        session.refresh(chat)
+        session.refresh(message)
+        return chat, message
+
+
 def add_message(
         user_id: int,
         chat_id: int,

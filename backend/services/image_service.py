@@ -6,6 +6,8 @@
 
 import os
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -42,111 +44,92 @@ THUMB_SIZE = (256,256)
 # SAVE
 #---------------------------------------------------------------------------------------
 
-def save_img(
-
-        # owner
-        user_id: int,
-
-        # raw image file
-        data: bytes,
-
-        # snapshot or upload
-        source: str,
-
-        # map area: (min_lon, min_lat, max_lon, max_lat)
-        bounds: Optional[tuple[float, float, float, float]] = None,
-
-        # map zoom level (snapshots)
-        zoom: Optional[int] = None,
-
-        # which tile server (snapshots)
-        tile_provider: Optional[str] = None,
-
-        # meter per pixe
-        pixel_size_m: Optional[float] = None,
-
-        # when the imagery was taken 
-        capture_date: Optional[datetime] = None,
-) -> Image:
-
-    # reject anything that isn't "snapshot" or "upload"
+@contextmanager
+def prepare_img(
+    user_id: int,
+    data: bytes,
+    source: str,
+    bounds: Optional[tuple[float, float, float, float]] = None,
+    zoom: Optional[int] = None,
+    tile_provider: Optional[str] = None,
+    pixel_size_m: Optional[float] = None,
+    capture_date: Optional[datetime] = None,
+) -> Iterator[Image]:
+    """Keep the image files only if the caller's database transaction succeeds."""
     if source not in VALID_SOURCES:
         raise ValueError(f"source must be one of {VALID_SOURCES}")
-
-    # reject files that are too big
     if len(data) > MAX_UPLOAD:
         raise ValueError(f"image is larger than {MAX_UPLOAD // (1024 * 1024)} MB")
 
-    # open the files with Pillow to prove it's a real image
-    try:
-        img = PILImage.open(BytesIO(data))
-        img.load()
-    except Exception:
-        raise ValueError("file is not a readable image")
+    area = None
+    if bounds is not None:
+        min_lon, min_lat, max_lon, max_lat = bounds
+        area = WKTElement(
+            f"POLYGON(({min_lon} {min_lat}, {max_lon} {min_lat}, {max_lon} {max_lat}, "
+            f"{min_lon} {max_lat}, {min_lon} {min_lat}))",
+            srid=4326,
+        )
 
-    # only allow PNG, JPEG, and TIFF
-    if img.format not in ALLOWED_FORMATS:
-        raise ValueError(f"unsupported format {img.format}; allowed: {', '.join(ALLOWED_FORMATS)}")
-
-    # remember the original format and size before converting
-    file_format = ALLOWED_FORMATS[img.format]
-
-    width, height = img.size
-
-    # make this user's folder
     user_dir = IMAGE_DIR / str(user_id)
-    user_dir.mkdir(parents=True, exist_ok=True)
-
-    # random file name, so users can't guess others 
     name = uuid.uuid4().hex
     file_path = user_dir / f"{name}.png"
     thumb_path = user_dir / f"{name}_thumb.png"
 
-    # save png copy for browser and the model
-    rgb = img.convert("RGB")
-    rgb.save(file_path, "PNG")
+    try:
+        img = PILImage.open(BytesIO(data))
+    except Exception as error:
+        raise ValueError("file is not a readable image") from error
 
-    # save a small preview for the image library 
-    thumb = rgb.copy()
-    thumb.thumbnail(THUMB_SIZE)
-    thumb.save(thumb_path, "PNG")
+    try:
+        with img:
+            try:
+                img.load()
+            except Exception as error:
+                raise ValueError("file is not a readable image") from error
+            if img.format not in ALLOWED_FORMATS:
+                raise ValueError(f"unsupported format {img.format}; allowed: {', '.join(ALLOWED_FORMATS)}")
+            image_format = ALLOWED_FORMATS[img.format]
+            width, height = img.size
+            user_dir.mkdir(parents=True, exist_ok=True)
+            with img.convert("RGB") as rgb:
+                rgb.save(file_path, "PNG")
+                rgb.thumbnail(THUMB_SIZE)
+                rgb.save(thumb_path, "PNG")
 
-    # turn the map corners into POstGIS coordinates
-    area = None
-    if bounds is not None:
-        min_lon, min_lat, max_lon, max_lat = bounds
-
-        area = WKTElement(
-
-            f"POLYGON(({min_lon} {min_lat}, {max_lon} {min_lat}, {max_lon} {max_lat}, "
-            f"{min_lon} {max_lat}, {min_lon} {min_lat}))",
-            srid=4326,
-
+        yield Image(
+            user_id=user_id,
+            source=source,
+            file_path=file_path.as_posix(),
+            thumb_path=thumb_path.as_posix(),
+            format=image_format,
+            width=width,
+            height=height,
+            area=area,
+            zoom=zoom,
+            tile_provider=tile_provider,
+            pixel_size_m=pixel_size_m,
+            capture_date=capture_date,
         )
+    except BaseException:
+        file_path.unlink(missing_ok=True)
+        thumb_path.unlink(missing_ok=True)
+        raise
 
-    # build the images table row
-    record = Image(
 
-        user_id=user_id,
-        source=source,
-        file_path=file_path.as_posix(),      
-        thumb_path=thumb_path.as_posix(),
-        format=file_format,
-        width=width,
-        height=height,
-        area=area,
-        zoom=zoom,
-        tile_provider=tile_provider,
-        pixel_size_m=pixel_size_m,
-        capture_date=capture_date,
-    )
-
-    # save the row to the database
+def save_img(
+    user_id: int,
+    data: bytes,
+    source: str,
+    bounds: Optional[tuple[float, float, float, float]] = None,
+    zoom: Optional[int] = None,
+    tile_provider: Optional[str] = None,
+    pixel_size_m: Optional[float] = None,
+    capture_date: Optional[datetime] = None,
+) -> Image:
     with get_session() as session:
-        session.add(record)
-        session.commit()
-
-        # reload to get record.id
+        with prepare_img(user_id, data, source, bounds, zoom, tile_provider, pixel_size_m, capture_date) as record:
+            session.add(record)
+            session.commit()
         session.refresh(record)
         return record
 

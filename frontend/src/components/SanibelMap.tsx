@@ -15,7 +15,7 @@ import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { Ref } from 'react'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FALLBACK_IMAGERY, formatReleaseDate } from '@/lib/imagery'
-import type { AreaSelection, ImageryRelease, ImagerySide } from '@/lib/imagery'
+import type { AreaSelection, ImageryPair, ImageryRelease, ImagerySide } from '@/lib/imagery'
 
 const CENTER = [-82.097, 26.426]
 const INITIAL_ZOOM = 16
@@ -127,7 +127,7 @@ function ReleaseSelector({ side, groups, release, onChange }: {
 }) {
   const label = side === 'before' ? 'Before' : 'After'
   const options = groups ?? []
-  const dateLabel = groups === null ? 'Loading dates…' : options.length ? formatReleaseDate(release) : 'Dates unavailable'
+  const dateLabel = groups === null ? 'Loading dates…' : options.length ? formatReleaseDate(release.releaseDateLabel) : 'Dates unavailable'
   const selectedValue = options.some(([, items]) => items.some((item) => item.releaseNum === release.releaseNum))
     ? String(release.releaseNum)
     : ''
@@ -150,7 +150,7 @@ function ReleaseSelector({ side, groups, release, onChange }: {
           <SelectGroup key={year}>
             <SelectLabel>{year}</SelectLabel>
             {releases.map((item) => (
-              <SelectItem key={item.releaseNum} value={String(item.releaseNum)}>{formatReleaseDate(item)}</SelectItem>
+              <SelectItem key={item.releaseNum} value={String(item.releaseNum)}>{formatReleaseDate(item.releaseDateLabel)}</SelectItem>
             ))}
           </SelectGroup>
         ))}
@@ -163,6 +163,7 @@ export type DrawState = 'loading' | 'idle' | 'starting' | 'drawing'
 export type MapControls = {
   toggleRectangle: () => void
   clearSelection: () => void
+  getImagery: () => ImageryPair | null
 }
 
 type Props = {
@@ -193,8 +194,9 @@ export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange }
   const sketchRef = useRef<SketchViewModel>(null)
   const initialReleasesSelected = useRef(false)
   const [layers] = useState(createMap)
-  const [imagery, setImagery] = useState(FALLBACK_IMAGERY)
+  const [imagery, setImagery] = useState<ImageryPair | null>(null)
   const [releaseGroups, setReleaseGroups] = useState<ReleaseGroups | null>(null)
+  const visibleImagery = imagery ?? FALLBACK_IMAGERY
 
   useEffect(() => {
     const element = mapRef.current
@@ -226,6 +228,8 @@ export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange }
             layers.changeRelease('after', after.releaseNum)
             setImagery({ before, after })
             initialReleasesSelected.current = true
+          } else {
+            setImagery(FALLBACK_IMAGERY)
           }
           layers.before.visible = true
           layers.after.visible = true
@@ -295,11 +299,12 @@ export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange }
       layers.selection.removeAll()
       onAreaChange(null)
     },
+    getImagery: () => imagery,
   }))
 
   function selectRelease(side: ImagerySide, release: ImageryRelease) {
     layers.changeRelease(side, release.releaseNum)
-    setImagery((current) => ({ ...current, [side]: release }))
+    setImagery((current) => ({ ...(current ?? FALLBACK_IMAGERY), [side]: release }))
   }
 
   return (
@@ -327,7 +332,7 @@ export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange }
         />
       </arcgis-map>
       <div className="absolute top-3 left-3 grid justify-items-start gap-2">
-        <ReleaseSelector side="before" groups={releaseGroups} release={imagery.before} onChange={selectRelease} />
+        <ReleaseSelector side="before" groups={releaseGroups} release={visibleImagery.before} onChange={selectRelease} />
       </div>
       <div
         ref={afterPickerRef}
@@ -336,7 +341,7 @@ export default function SanibelMap({ ref, drawState, onDrawState, onAreaChange }
           left: 'clamp(min(10.5rem, 50%), calc(var(--swipe-position, 50%) + 0.75rem), max(calc(100% - 9.75rem), calc(50% + 0.75rem)))',
         }}
       >
-        <ReleaseSelector side="after" groups={releaseGroups} release={imagery.after} onChange={selectRelease} />
+        <ReleaseSelector side="after" groups={releaseGroups} release={visibleImagery.after} onChange={selectRelease} />
       </div>
     </section>
   )
