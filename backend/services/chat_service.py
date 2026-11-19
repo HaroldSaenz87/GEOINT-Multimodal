@@ -5,13 +5,14 @@ from contextlib import ExitStack
 from typing import Any, Optional
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
-from sqlmodel import select
+from sqlmodel import Session, select
 from backend.db import get_session
 from backend.schema import Chat, Image, Message, User, now
 from backend.services.image_service import prepare_img
 
 # the only allowed values for a message's role
 VALID_ROLES = {"user", "assistant"}
+UploadedImage = tuple[str, bytes]
 
 
 class ChatNotFoundError(PermissionError):
@@ -103,15 +104,23 @@ def delete_chat(user_id: int, chat_id: int) -> None:
 
 # MESSAGES
 #-----------------------------------------------------------------------------------------------------------
+def _stage_upload(session: Session, staged: ExitStack, user_id: int, attachment: UploadedImage) -> int | None:
+    image = staged.enter_context(prepare_img(user_id, attachment[1], "upload"))
+    session.add(image)
+    session.flush()
+    return image.id
+
+
 def submit_message(
     identity: str,
     client_message_id: str,
     chat_id: int | None,
     content: str,
     comparison: dict[str, Any] | None,
-    attachment: tuple[str, bytes] | None,
+    attachment: UploadedImage | None,
+    image_pair: tuple[UploadedImage, UploadedImage] | None = None,
 ) -> tuple[Chat, Message]:
-    """Create a chat if needed and save this message and its attachment together."""
+    """Create a chat if needed and save this message and its attachments together."""
     with get_session() as session:
         session.execute(
             insert(User).values(keycloak_id=identity, created_at=now())
@@ -139,22 +148,23 @@ def submit_message(
             chat = _get_owned_chat(session, user_id, chat_id)
 
         with ExitStack() as staged:
-            image_id = None
-            if attachment:
-                image = staged.enter_context(prepare_img(user_id, attachment[1], "upload"))
-                session.add(image)
-                session.flush()
-                image_id = image.id
-
             message = Message(
                 chat_id=chat.id,
                 role="user",
                 content=content,
-                image_id=image_id,
                 attachment_name=attachment_name,
                 comparison=comparison,
                 client_message_id=client_message_id,
             )
+            if attachment:
+                message.image_id = _stage_upload(session, staged, user_id, attachment)
+            if image_pair:
+                before, after = image_pair
+                message.before_image_id = _stage_upload(session, staged, user_id, before)
+                message.after_image_id = _stage_upload(session, staged, user_id, after)
+                message.before_image_name = before[0]
+                message.after_image_name = after[0]
+
             chat.updated_at = message.created_at
             session.add(message)
             session.commit()

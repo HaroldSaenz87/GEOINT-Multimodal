@@ -86,6 +86,10 @@ class MessageRead(BaseModel):
     content: str
     image_id: int | None
     attachment_name: str | None
+    before_image_id: int | None
+    before_image_name: str | None
+    after_image_id: int | None
+    after_image_name: str | None
     comparison: Comparison | None
     created_at: datetime
 
@@ -112,24 +116,38 @@ def get_messages(chat_id: ChatId, identity: BrowserIdentity):
         raise HTTPException(404, "Chat not found.") from error
 
 
+def read_upload(imagery: UploadFile, label: str) -> chat_service.UploadedImage:
+    data = imagery.file.read(MAX_UPLOAD + 1)
+    if len(data) > MAX_UPLOAD:
+        raise HTTPException(413, f"{label} must be 20 MiB or smaller.")
+    name = (imagery.filename or label).replace("\x00", "")[:255] or label
+    return name, data
+
+
 @router.post("/messages", response_model=SendResult)
 def send_message(
     identity: BrowserIdentity,
     payload: Annotated[Json[SendMessage], Form()],
     imagery: Annotated[UploadFile | None, File()] = None,
+    before_imagery: Annotated[UploadFile | None, File()] = None,
+    after_imagery: Annotated[UploadFile | None, File()] = None,
 ):
-    if not payload.content and imagery is None and not (payload.comparison and payload.comparison.area):
-        raise HTTPException(422, "Enter a message, select an area, or attach imagery.")
+    has_pair_upload = before_imagery is not None or after_imagery is not None
+    if payload.comparison is not None and (has_pair_upload or imagery is not None):
+        raise HTTPException(422, "Choose either a map comparison or uploaded imagery.")
+    if has_pair_upload and imagery is not None:
+        raise HTTPException(422, "Send either an image pair or a single attachment.")
+    if has_pair_upload and (before_imagery is None or after_imagery is None):
+        raise HTTPException(422, "Choose both a Before image and an After image.")
+    if not payload.content and imagery is None and not has_pair_upload and not (payload.comparison and payload.comparison.area):
+        raise HTTPException(422, "Enter a message, select an area, or attach an image pair.")
     if "\x00" in payload.content:
         raise HTTPException(422, "Remove invalid characters from the message.")
 
-    attachment = None
-    if imagery is not None:
-        data = imagery.file.read(MAX_UPLOAD + 1)
-        if len(data) > MAX_UPLOAD:
-            raise HTTPException(413, "Imagery must be 20 MB or smaller.")
-        name = (imagery.filename or "Imagery").replace("\x00", "")[:255] or "Imagery"
-        attachment = (name, data)
+    attachment = read_upload(imagery, "Imagery") if imagery is not None else None
+    image_pair = None
+    if before_imagery is not None and after_imagery is not None:
+        image_pair = (read_upload(before_imagery, "Before image"), read_upload(after_imagery, "After image"))
 
     try:
         chat, message = chat_service.submit_message(
@@ -139,6 +157,7 @@ def send_message(
             payload.content,
             payload.comparison.model_dump(mode="json") if payload.comparison else None,
             attachment,
+            image_pair,
         )
     except chat_service.ChatNotFoundError as error:
         raise HTTPException(404, "Chat not found.") from error

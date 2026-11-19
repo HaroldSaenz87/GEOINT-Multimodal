@@ -17,6 +17,10 @@ export type ChatMessage = {
   content: string
   image_id: number | null
   attachment_name: string | null
+  before_image_id: number | null
+  before_image_name: string | null
+  after_image_id: number | null
+  after_image_name: string | null
   comparison: Comparison | null
   created_at: string
 }
@@ -79,9 +83,16 @@ export function getChatMessages(chatId: number) {
   return request<ChatMessage[]>(`/${chatId}/messages`)
 }
 
-export function sendChatMessage(draft: MessageDraft, clientMessageId: string, image: File | null) {
+export function sendChatMessage(
+  draft: MessageDraft,
+  clientMessageId: string,
+  images: { before: File; after: File } | null,
+) {
   const body = new FormData()
   body.set('payload', JSON.stringify({ ...draft, client_message_id: clientMessageId }))
-  if (image) body.set('imagery', image)
+  if (images) {
+    body.set('before_imagery', images.before)
+    body.set('after_imagery', images.after)
+  }
   return request<{ chat: Chat; message: ChatMessage }>('/messages', body)
 }

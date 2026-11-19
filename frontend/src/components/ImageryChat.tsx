@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getChatMessages, getChats, sendChatMessage } from '@/lib/chat'
 import type { Chat, ChatMessage, MessageDraft } from '@/lib/chat'
 import { formatReleaseDate } from '@/lib/imagery'
-import type { AreaSelection, ImageryPair } from '@/lib/imagery'
+import type { AreaSelection, ImageryPair, ImagerySide } from '@/lib/imagery'
 import type { DrawState } from './SanibelMap'
 
 type Props = {
@@ -17,10 +17,13 @@ type Props = {
 }
 
 type LocalMessage = { role: 'user'; text: string; imageName?: string }
-type DisplayMessage = Pick<ChatMessage, 'id' | 'role' | 'content' | 'attachment_name' | 'comparison'>
+type DisplayMessage = Pick<ChatMessage,
+  'id' | 'role' | 'content' | 'attachment_name' | 'before_image_name' | 'after_image_name' | 'comparison'>
 type LocalConversation = { id: string; updatedAt: number; messages: DisplayMessage[] }
+type UploadSelection = Record<ImagerySide, File | null>
 
 const HISTORY_KEY = 'geoint.chat-history.v1'
+const MAX_UPLOAD = 20 * 1024 * 1024
 const HISTORY_DATE = new Intl.DateTimeFormat(undefined, {
   month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
 })
@@ -41,7 +44,13 @@ function loadLocalHistory(): LocalConversation[] {
             && 'text' in message && typeof message.text === 'string'
             && (!('imageName' in message) || typeof message.imageName === 'string'))
           .map((message: LocalMessage, index: number) => ({
-            id: index, role: message.role, content: message.text, attachment_name: message.imageName ?? null, comparison: null,
+            id: index,
+            role: message.role,
+            content: message.text,
+            attachment_name: message.imageName ?? null,
+            before_image_name: null,
+            after_image_name: null,
+            comparison: null,
           }))
         if (messages.length) history.push({ id: item.id, updatedAt: item.updatedAt, messages })
       }
@@ -53,6 +62,69 @@ function loadLocalHistory(): LocalConversation[] {
   return []
 }
 
+function UploadSlot({ label, file, onChange }: {
+  label: 'Before image' | 'After image'
+  file: File | null
+  onChange: (file: File | null) => void
+}) {
+  const picker = useRef<HTMLInputElement>(null)
+  const preview = useRef<HTMLImageElement>(null)
+  const [failedPreview, setFailedPreview] = useState<File | null>(null)
+  const showPreview = file && file !== failedPreview && file.type !== 'image/tiff' && !/\.tiff?$/i.test(file.name)
+
+  useEffect(() => {
+    const image = preview.current
+    if (!file || !image) return
+    const url = URL.createObjectURL(file)
+    image.src = url
+    return () => URL.revokeObjectURL(url)
+  }, [file, showPreview])
+
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-md border border-[#485051] p-1.5 text-left text-[11px]">
+      {showPreview ? (
+        <img ref={preview} alt="" className="size-8 shrink-0 rounded-sm object-cover" onError={() => setFailedPreview(file)} />
+      ) : (
+        <ImageIcon size={16} aria-hidden="true" className="mx-2 shrink-0 text-[#a8beb8]" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">{label}</p>
+        {file && <p className="truncate text-[#c0ddd5]" title={file.name}>{file.name}</p>}
+      </div>
+      {file ? (
+        <button
+          type="button"
+          aria-label={`Remove ${label}`}
+          onClick={() => onChange(null)}
+          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-sm hover:bg-[#45625c] focus-visible:outline-2 focus-visible:outline-teal-300"
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label={`Choose ${label}`}
+          onClick={() => picker.current?.click()}
+          className="shrink-0 cursor-pointer rounded-sm px-2 py-1.5 text-[#a8dfd2] hover:bg-[#333b3a] focus-visible:outline-2 focus-visible:outline-teal-300"
+        >
+          Choose
+        </button>
+      )}
+      <input
+        ref={picker}
+        type="file"
+        accept="image/png,image/jpeg,image/tiff,.png,.jpg,.jpeg,.tif,.tiff"
+        hidden
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0]
+          if (file) onChange(file)
+          event.currentTarget.value = ''
+        }}
+      />
+    </div>
+  )
+}
+
 export default function ImageryChat({ area, drawState, onDraw, onClear, getImagery }: Props) {
   const [tab, setTab] = useState('chat')
   const [draft, setDraft] = useState('')
@@ -61,16 +133,17 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
   const [activeId, setActiveId] = useState<number | null>(null)
   const [localHistory] = useState(loadLocalHistory)
   const [localConversation, setLocalConversation] = useState<LocalConversation | null>(null)
-  const [image, setImage] = useState<File | null>(null)
+  const [uploads, setUploads] = useState<UploadSelection | null>(null)
   const [pending, setPending] = useState<'send' | 'history' | 'open' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const lastAttempt = useRef<{ id: string; payload: string; image: File | null } | null>(null)
+  const lastAttempt = useRef<{ id: string; payload: string; uploads: UploadSelection | null } | null>(null)
   const scrollArea = useRef<HTMLDivElement>(null)
-  const imagePicker = useRef<HTMLInputElement>(null)
   const activeMessages = localConversation?.messages ?? messages
   const ready = drawState !== 'loading' && drawState !== 'starting'
   const drawing = drawState === 'drawing'
   const busy = pending !== null
+  const images = uploads?.before && uploads.after ? { before: uploads.before, after: uploads.after } : null
+  const canSend = !drawing && (uploads ? images !== null && !area : Boolean(draft.trim() || area))
 
   useEffect(() => {
     const element = scrollArea.current
@@ -80,7 +153,7 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
   function resetComposer() {
     lastAttempt.current = null
     setDraft('')
-    setImage(null)
+    setUploads(null)
     setError(null)
     setTab('chat')
   }
@@ -132,10 +205,19 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
     resetComposer()
   }
 
+  function selectUpload(side: ImagerySide, file: File | null) {
+    if (file && file.size > MAX_UPLOAD) {
+      setError(`${side === 'before' ? 'Before' : 'After'} image must be 20 MiB or smaller.`)
+      return
+    }
+    setError(null)
+    setUploads((current) => current && { ...current, [side]: file })
+  }
+
   async function send() {
+    if (busy || !canSend) return
     const content = draft.trim()
-    if (busy || drawing || (!content && !image && !area)) return
-    const imagery = getImagery()
+    const imagery = uploads ? null : getImagery()
     if (area && !imagery) {
       setError('Wait for the map release dates to load, then send again.')
       return
@@ -154,10 +236,10 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
     setPending('send')
     try {
       const payload = JSON.stringify(message)
-      if (lastAttempt.current?.payload !== payload || lastAttempt.current.image !== image) {
-        lastAttempt.current = { id: crypto.randomUUID(), payload, image }
+      if (lastAttempt.current?.payload !== payload || lastAttempt.current.uploads !== uploads) {
+        lastAttempt.current = { id: crypto.randomUUID(), payload, uploads }
       }
-      const saved = await sendChatMessage(message, lastAttempt.current.id, image)
+      const saved = await sendChatMessage(message, lastAttempt.current.id, images)
       setActiveId(saved.chat.id)
       setMessages((current) => [...current, saved.message])
       resetComposer()
@@ -178,13 +260,19 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
         <TabsContent value="chat" className="flex min-h-0 flex-col data-[state=inactive]:hidden">
           <div ref={scrollArea} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-3" role="log" aria-label="Conversation">
-              {activeMessages.map(({ id, role, content, attachment_name, comparison }) => (
+              {activeMessages.map(({ id, role, content, attachment_name, before_image_name, after_image_name, comparison }) => (
                 <div
                   key={id}
                   aria-label={role === 'user' ? 'You' : 'Assistant'}
                   className={`max-w-[92%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed break-words whitespace-pre-wrap ${role === 'user' ? 'self-end rounded-tr-sm bg-[#29433e]' : 'self-start rounded-tl-sm bg-[#303638]'}`}
                 >
                   {attachment_name && <span className="mb-1 block truncate text-[11px] text-[#c0ddd5]" title={attachment_name}>{attachment_name}</span>}
+                  {before_image_name && after_image_name && (
+                    <div className="mb-1 min-w-0 text-[11px] text-[#c0ddd5]">
+                      <p className="truncate" title={before_image_name}>Before · {before_image_name}</p>
+                      <p className="truncate" title={after_image_name}>After · {after_image_name}</p>
+                    </div>
+                  )}
                   {content}
                   {comparison && (
                     <p className="mt-1.5 text-[11px] text-[#c0ddd5]">
@@ -211,54 +299,51 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
             {drawing && <p className="mb-2 text-[11px] text-[#bcd6d0]" role="status">Drag on the map to draw a rectangle.</p>}
             {error && <p className="mb-2 text-xs text-[#f7b9b9]" role="alert">{error}</p>}
             <fieldset disabled={busy} className="grid min-w-0 gap-1.5 rounded-xl border border-[#42494a] bg-[#232729] p-2.5 focus-within:border-[#779a91]">
-              <div className="flex flex-wrap gap-1.5">
-                {area ? (
-                  <Badge asChild variant="outline" className={`${TOOL_BADGE} border-[#45625c] bg-[#293b37] text-[#d5ede7]`}>
-                    <button type="button" aria-label="Area set, clear selected area" title="Clear selected area" onClick={onClear}>
-                      <SquareDashed aria-hidden="true" />
-                      Area set
-                      <X aria-hidden="true" />
-                    </button>
-                  </Badge>
-                ) : (
-                  <Badge asChild variant="outline" className={TOOL_BADGE}>
-                    <button type="button" aria-pressed={drawing} title={drawing ? 'Cancel drawing' : undefined} disabled={!ready} onClick={onDraw}>
-                      <SquareDashed aria-hidden="true" />
-                      Select area
-                    </button>
-                  </Badge>
-                )}
-                <Badge asChild variant="outline" className={TOOL_BADGE}>
-                  <button type="button" onClick={() => imagePicker.current?.click()}>
-                    <Upload aria-hidden="true" />
-                    Upload imagery
-                  </button>
-                </Badge>
-                <input
-                  ref={imagePicker}
-                  type="file"
-                  aria-label="Choose imagery"
-                  accept="image/png,image/jpeg,image/tiff,.png,.jpg,.jpeg,.tif,.tiff"
-                  hidden
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0]
-                    if (file) setImage(file)
-                    event.currentTarget.value = ''
-                  }}
-                />
-              </div>
-              {image && (
-                <div className="flex w-fit max-w-full items-center gap-1.5 rounded-md border border-[#45625c] bg-[#293b37] px-2 py-1 text-[11px] text-[#d5ede7]">
-                  <ImageIcon size={13} className="shrink-0" aria-hidden="true" />
-                  <span className="truncate" role="status" title={image.name}>{image.name}</span>
+              {uploads ? (
+                <div className="grid min-w-0 gap-1.5">
+                  <UploadSlot label="Before image" file={uploads.before} onChange={(file) => selectUpload('before', file)} />
+                  <UploadSlot label="After image" file={uploads.after} onChange={(file) => selectUpload('after', file)} />
+                  <p className="px-0.5 text-[10px] text-[#adb4b3]">PNG, JPEG, or TIFF · 20 MiB each</p>
                   <button
                     type="button"
-                    aria-label="Remove attached image"
-                    onClick={() => setImage(null)}
-                    className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-sm hover:bg-[#45625c] focus-visible:outline-2 focus-visible:outline-teal-300"
+                    onClick={() => {
+                      setUploads(null)
+                      setError(null)
+                    }}
+                    className="justify-self-start px-0.5 text-[11px] text-[#a8dfd2] underline hover:text-[#c1f3e8]"
                   >
-                    <X size={13} aria-hidden="true" />
+                    Cancel image pair
                   </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {area ? (
+                    <Badge asChild variant="outline" className={`${TOOL_BADGE} border-[#45625c] bg-[#293b37] text-[#d5ede7]`}>
+                      <button type="button" aria-label="Area set, clear selected area" title="Clear selected area" onClick={onClear}>
+                        <SquareDashed aria-hidden="true" />
+                        Area set
+                        <X aria-hidden="true" />
+                      </button>
+                    </Badge>
+                  ) : (
+                    <>
+                      <Badge asChild variant="outline" className={TOOL_BADGE}>
+                        <button type="button" aria-pressed={drawing} title={drawing ? 'Cancel drawing' : undefined} disabled={!ready} onClick={onDraw}>
+                          <SquareDashed aria-hidden="true" />
+                          Select area
+                        </button>
+                      </Badge>
+                      <Badge asChild variant="outline" className={TOOL_BADGE}>
+                        <button type="button" disabled={drawing || drawState === 'starting'} onClick={() => {
+                          setError(null)
+                          setUploads({ before: null, after: null })
+                        }}>
+                          <Upload aria-hidden="true" />
+                          Upload image pair
+                        </button>
+                      </Badge>
+                    </>
+                  )}
                 </div>
               )}
               <textarea
@@ -281,7 +366,7 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
                 <button
                   type="submit"
                   aria-label="Send message"
-                  disabled={drawing || (!draft.trim() && !image && !area)}
+                  disabled={!canSend}
                   className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg bg-[#a8dfd2] text-[#172c28] hover:bg-[#c1f3e8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300 disabled:cursor-default disabled:opacity-50"
                 >
                   <ArrowUp size={17} aria-hidden="true" />

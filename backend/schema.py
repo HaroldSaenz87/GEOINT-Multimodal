@@ -155,6 +155,10 @@ class Message(SQLModel, table= True):
 
     client_message_id: Optional[str] = Field(default=None, max_length=36, index=True)
     attachment_name: Optional[str] = Field(default=None, max_length=255)
+    before_image_id: Optional[int] = Field(default=None, foreign_key="images.id")
+    before_image_name: Optional[str] = Field(default=None, max_length=255)
+    after_image_id: Optional[int] = Field(default=None, foreign_key="images.id")
+    after_image_name: Optional[str] = Field(default=None, max_length=255)
     comparison: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     
     # when it was sent... this can show messages in order

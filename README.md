@@ -76,9 +76,10 @@ release on the After side and the previous release on the Before side. Drag the
 divider to compare them. The date menus update as you pan or zoom. Choose **Select area**
 in the composer and drag a rectangle on the map to select it. Sending saves the
 message along with the selected rectangle and both Wayback release IDs and dates.
-**Upload imagery** accepts a PNG, JPEG, or TIFF up to 20 MB. The backend stores
-the uploaded image and associates it with the message. **History** reopens saved
-conversations, including their imagery context.
+To use your own imagery, choose **Upload image pair** and select one **Before image**
+and one **After image**. Each can be a PNG, JPEG, or TIFF up to 20 MiB. Clear the
+mapped area to switch to uploads, or cancel the image pair to return to area
+selection. **History** reopens messages with their saved imagery context.
 
 Wayback dates identify map releases. The selected rectangle and release IDs give
 the later analysis step the inputs to fetch matching before and after imagery.

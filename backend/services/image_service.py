@@ -137,10 +137,10 @@ def prepare_img(
     )
 
     try:
-        rgb = img.convert("RGB")
-        rgb.save(file_path, "PNG")
-        rgb.thumbnail(THUMB_SIZE)
-        rgb.save(thumb_path, "PNG")
+        with img, img.convert("RGB") as rgb:
+            rgb.save(file_path, "PNG")
+            rgb.thumbnail(THUMB_SIZE)
+            rgb.save(thumb_path, "PNG")
         yield record
     except BaseException:
         file_path.unlink(missing_ok=True)
