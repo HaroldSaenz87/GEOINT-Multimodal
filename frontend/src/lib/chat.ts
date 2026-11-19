@@ -15,14 +15,10 @@ export type ChatMessage = {
   id: number
   role: 'user' | 'assistant'
   content: string
-  image_id: number | null
   attachment_name: string | null
-  before_image_id: number | null
-  before_image_name: string | null
-  after_image_id: number | null
-  after_image_name: string | null
-  comparison: Comparison | null
-  created_at: string
+  before_image_name?: string | null
+  after_image_name?: string | null
+  comparison?: Comparison | null
 }
 
 export type MessageDraft = {
@@ -37,18 +33,14 @@ let sessionToken: string | undefined
 
 function getSessionToken() {
   if (sessionToken) return sessionToken
-  const token = crypto.randomUUID()
   try {
     const saved = localStorage.getItem(SESSION_KEY)
-    if (saved && UUID_V4.test(saved)) {
-      sessionToken = saved
-      return sessionToken
-    }
-    localStorage.setItem(SESSION_KEY, token)
+    sessionToken = saved && UUID_V4.test(saved) ? saved : crypto.randomUUID()
+    if (sessionToken !== saved) localStorage.setItem(SESSION_KEY, sessionToken)
   } catch {
-    // Private browsing can restrict storage. Keep this tab's session usable.
+    // A tab can still send messages if local storage is unavailable.
+    sessionToken ??= crypto.randomUUID()
   }
-  sessionToken = token
   return sessionToken
 }
 
@@ -63,16 +55,13 @@ async function request<T>(path: string, body?: FormData): Promise<T> {
   }).catch(() => {
     throw new Error(unavailable)
   })
-  if (!response.ok) {
-    const error = await response.json().catch(() => null) as { detail?: unknown } | null
-    const detail = error?.detail
-    if (response.status < 500 && typeof detail === 'string') throw new Error(detail)
-    if (response.status === 422) throw new Error('Check the message and imagery selection, then try again.')
-    throw new Error(unavailable)
+  const data = await response.json().catch(() => null)
+  if (response.ok && data !== null) return data as T
+  if (response.status >= 400 && response.status < 500 && typeof data?.detail === 'string') {
+    throw new Error(data.detail)
   }
-  return response.json().catch(() => {
-    throw new Error(unavailable)
-  }) as Promise<T>
+  if (response.status === 422) throw new Error('Check the message and imagery selection, then try again.')
+  throw new Error(unavailable)
 }
 
 export function getChats() {

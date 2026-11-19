@@ -16,11 +16,10 @@ type Props = {
   getImagery: () => ImageryPair | null
 }
 
-type LocalMessage = { role: 'user'; text: string; imageName?: string }
-type DisplayMessage = Pick<ChatMessage,
-  'id' | 'role' | 'content' | 'attachment_name' | 'before_image_name' | 'after_image_name' | 'comparison'>
-type LocalConversation = { id: string; updatedAt: number; messages: DisplayMessage[] }
+type LocalChat = { id: string; title: string; messages: ChatMessage[] }
+type Conversation = { id: number | string | null; messages: ChatMessage[] }
 type UploadSelection = Record<ImagerySide, File | null>
+type ChatAction = 'history' | 'open' | 'send'
 
 const HISTORY_KEY = 'geoint.chat-history.v1'
 const MAX_UPLOAD = 20 * 1024 * 1024
@@ -29,37 +28,30 @@ const HISTORY_DATE = new Intl.DateTimeFormat(undefined, {
 })
 const TOOL_BADGE = 'h-7 cursor-pointer border-[#485051] px-1.5 text-[11px] text-[#e3e9e6] hover:bg-[#333b3a] disabled:cursor-default disabled:opacity-50 aria-pressed:border-[#69b5a8] aria-pressed:bg-[#293b37]'
 
-function loadLocalHistory(): LocalConversation[] {
+function loadLocalHistory(): LocalChat[] {
   try {
-    const saved = JSON.parse(window.localStorage.getItem(HISTORY_KEY) ?? '[]') as unknown
-    if (Array.isArray(saved)) {
-      const history: LocalConversation[] = []
-      for (const item of saved) {
-        if (typeof item?.id !== 'string' || !Number.isFinite(item.updatedAt)
-          || !Number.isFinite(new Date(item.updatedAt).getTime()) || !Array.isArray(item.messages)) continue
-        const messages = item.messages
-          .filter((message: unknown): message is LocalMessage =>
-            typeof message === 'object' && message !== null
-            && 'role' in message && message.role === 'user'
-            && 'text' in message && typeof message.text === 'string'
-            && (!('imageName' in message) || typeof message.imageName === 'string'))
-          .map((message: LocalMessage, index: number) => ({
-            id: index,
-            role: message.role,
-            content: message.text,
-            attachment_name: message.imageName ?? null,
-            before_image_name: null,
-            after_image_name: null,
-            comparison: null,
-          }))
-        if (messages.length) history.push({ id: item.id, updatedAt: item.updatedAt, messages })
-      }
-      return history
-    }
+    const saved: unknown = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
+    if (!Array.isArray(saved)) return []
+    return saved.flatMap((chat) => {
+      if (typeof chat?.id !== 'string' || !Array.isArray(chat.messages)) return []
+      const savedMessages: unknown[] = chat.messages
+      const messages = savedMessages.flatMap((message, index): ChatMessage[] => {
+        if (!message || typeof message !== 'object' || !('role' in message) || message.role !== 'user'
+          || !('text' in message) || typeof message.text !== 'string') return []
+        return [{
+          id: index,
+          role: 'user',
+          content: message.text,
+          attachment_name: 'imageName' in message && typeof message.imageName === 'string' ? message.imageName : null,
+        }]
+      })
+      if (!messages.length) return []
+      const first = messages[0]
+      return [{ id: chat.id, title: first.content || first.attachment_name || 'Earlier chat', messages }]
+    })
   } catch {
-    // Earlier demo history may be unavailable in this browser.
+    return []
   }
-  return []
 }
 
 function UploadSlot({ label, file, onChange }: {
@@ -91,25 +83,14 @@ function UploadSlot({ label, file, onChange }: {
         <p className="font-medium">{label}</p>
         {file && <p className="truncate text-[#c0ddd5]" title={file.name}>{file.name}</p>}
       </div>
-      {file ? (
-        <button
-          type="button"
-          aria-label={`Remove ${label}`}
-          onClick={() => onChange(null)}
-          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-sm hover:bg-[#45625c] focus-visible:outline-2 focus-visible:outline-teal-300"
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
-      ) : (
-        <button
-          type="button"
-          aria-label={`Choose ${label}`}
-          onClick={() => picker.current?.click()}
-          className="shrink-0 cursor-pointer rounded-sm px-2 py-1.5 text-[#a8dfd2] hover:bg-[#333b3a] focus-visible:outline-2 focus-visible:outline-teal-300"
-        >
-          Choose
-        </button>
-      )}
+      <button
+        type="button"
+        aria-label={`${file ? 'Remove' : 'Choose'} ${label}`}
+        onClick={() => file ? onChange(null) : picker.current?.click()}
+        className="grid h-8 shrink-0 cursor-pointer place-items-center rounded-sm px-2 text-[#a8dfd2] hover:bg-[#333b3a] focus-visible:outline-2 focus-visible:outline-teal-300"
+      >
+        {file ? <X size={14} aria-hidden="true" /> : 'Choose'}
+      </button>
       <input
         ref={picker}
         type="file"
@@ -129,16 +110,15 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
   const [tab, setTab] = useState('chat')
   const [draft, setDraft] = useState('')
   const [history, setHistory] = useState<Chat[]>([])
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [activeId, setActiveId] = useState<number | null>(null)
+  const [conversation, setConversation] = useState<Conversation>({ id: null, messages: [] })
   const [localHistory] = useState(loadLocalHistory)
-  const [localConversation, setLocalConversation] = useState<LocalConversation | null>(null)
   const [uploads, setUploads] = useState<UploadSelection | null>(null)
-  const [pending, setPending] = useState<'send' | 'history' | 'open' | null>(null)
+  const [pending, setPending] = useState<ChatAction | null>(null)
   const [error, setError] = useState<string | null>(null)
   const lastAttempt = useRef<{ id: string; payload: string; uploads: UploadSelection | null } | null>(null)
   const scrollArea = useRef<HTMLDivElement>(null)
-  const activeMessages = localConversation?.messages ?? messages
+  const { id: chatId, messages } = conversation
+  const archived = typeof chatId === 'string'
   const ready = drawState !== 'loading' && drawState !== 'starting'
   const drawing = drawState === 'drawing'
   const busy = pending !== null
@@ -148,9 +128,10 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
   useEffect(() => {
     const element = scrollArea.current
     if (element) element.scrollTop = element.scrollHeight
-  }, [activeMessages, tab])
+  }, [messages, tab])
 
-  function resetComposer() {
+  function switchConversation(next: Conversation) {
+    setConversation(next)
     lastAttempt.current = null
     setDraft('')
     setUploads(null)
@@ -158,16 +139,24 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
     setTab('chat')
   }
 
-  async function loadHistory() {
-    setPending('history')
+  async function runRequest(
+    action: ChatAction,
+    work: () => Promise<void>,
+    errorMessage?: string,
+  ) {
+    setPending(action)
     setError(null)
     try {
-      setHistory(await getChats())
-    } catch {
-      setError('Could not load chat history. Try again.')
+      await work()
+    } catch (error) {
+      setError(errorMessage ?? (error instanceof Error ? error.message : 'Could not send the message. Try again.'))
     } finally {
       setPending(null)
     }
+  }
+
+  function loadHistory() {
+    return runRequest('history', async () => setHistory(await getChats()), 'Could not load chat history. Try again.')
   }
 
   function selectTab(next: string) {
@@ -177,32 +166,42 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
   }
 
   function newChat() {
-    setActiveId(null)
-    setMessages([])
-    setLocalConversation(null)
-    resetComposer()
+    switchConversation({ id: null, messages: [] })
   }
 
-  async function openConversation(id: number) {
-    setPending('open')
-    setError(null)
-    try {
-      setMessages(await getChatMessages(id))
-      setActiveId(id)
-      setLocalConversation(null)
-      resetComposer()
-    } catch {
-      setError('Could not open this chat. Try again.')
-    } finally {
-      setPending(null)
+  function openChat(chat: Chat | LocalChat) {
+    if ('messages' in chat) {
+      switchConversation(chat)
+      return
     }
+    void runRequest('open', async () => {
+      switchConversation({ id: chat.id, messages: await getChatMessages(chat.id) })
+    }, 'Could not open this chat. Try again.')
   }
 
-  function openLocalConversation(conversation: LocalConversation) {
-    setActiveId(null)
-    setMessages([])
-    setLocalConversation(conversation)
-    resetComposer()
+  function historyList(chats: (Chat | LocalChat)[]) {
+    return (
+      <ul className="grid gap-1.5">
+        {chats.map((chat) => (
+          <li key={chat.id}>
+            <button
+              type="button"
+              disabled={busy}
+              aria-current={chat.id === chatId ? 'true' : undefined}
+              onClick={() => openChat(chat)}
+              className="block w-full cursor-pointer rounded-md px-3 py-2 text-left hover:bg-[#2a3231] focus-visible:outline-2 focus-visible:outline-teal-300 aria-current:bg-[#252e2c] disabled:opacity-50"
+            >
+              <span className="block truncate text-xs font-medium">{chat.title}</span>
+              {'updated_at' in chat && (
+                <time dateTime={chat.updated_at} className="mt-1 block text-[11px] text-[#adb4b3]">
+                  {HISTORY_DATE.format(new Date(chat.updated_at))}
+                </time>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
+    )
   }
 
   function selectUpload(side: ImagerySide, file: File | null) {
@@ -215,39 +214,31 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
   }
 
   async function send() {
-    if (busy || !canSend) return
+    if (busy || archived || !canSend) return
     const content = draft.trim()
-    const imagery = uploads ? null : getImagery()
+    const imagery = area ? getImagery() : null
     if (area && !imagery) {
       setError('Wait for the map release dates to load, then send again.')
       return
     }
     const message: MessageDraft = {
-      chat_id: activeId,
+      chat_id: chatId,
       content,
-      comparison: imagery && {
+      comparison: area && imagery && {
         source: 'esri-wayback',
         before: { release_num: imagery.before.releaseNum, release_date: imagery.before.releaseDateLabel },
         after: { release_num: imagery.after.releaseNum, release_date: imagery.after.releaseDateLabel },
-        area: area?.geometry ?? null,
+        area: area.geometry,
       },
     }
-    setError(null)
-    setPending('send')
-    try {
+    await runRequest('send', async () => {
       const payload = JSON.stringify(message)
       if (lastAttempt.current?.payload !== payload || lastAttempt.current.uploads !== uploads) {
         lastAttempt.current = { id: crypto.randomUUID(), payload, uploads }
       }
       const saved = await sendChatMessage(message, lastAttempt.current.id, images)
-      setActiveId(saved.chat.id)
-      setMessages((current) => [...current, saved.message])
-      resetComposer()
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Could not send the message. Try again.')
-    } finally {
-      setPending(null)
-    }
+      switchConversation({ id: saved.chat.id, messages: [...messages, saved.message] })
+    })
   }
 
   return (
@@ -260,7 +251,7 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
         <TabsContent value="chat" className="flex min-h-0 flex-col data-[state=inactive]:hidden">
           <div ref={scrollArea} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-3" role="log" aria-label="Conversation">
-              {activeMessages.map(({ id, role, content, attachment_name, before_image_name, after_image_name, comparison }) => (
+              {messages.map(({ id, role, content, attachment_name, before_image_name, after_image_name, comparison }) => (
                 <div
                   key={id}
                   aria-label={role === 'user' ? 'You' : 'Assistant'}
@@ -284,7 +275,7 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
               ))}
             </div>
           </div>
-          {localConversation ? (
+          {archived ? (
             <div className="border-t border-[#303436] p-4 text-xs text-[#adb4b3]">
               <p>This earlier chat is saved in this browser.</p>
               <button type="button" onClick={newChat} className="mt-2 cursor-pointer text-[#a8dfd2] underline">New chat</button>
@@ -392,41 +383,11 @@ export default function ImageryChat({ area, drawState, onDraw, onClear, getImage
           )}
           {!busy && !error && history.length === 0 && localHistory.length === 0
             && <p className="text-xs leading-relaxed text-[#adb4b3]">Your conversations will appear here.</p>}
-          <ul className="grid gap-1.5">
-            {history.map(({ id, title, updated_at }) => (
-              <li key={id}>
-                <button
-                  type="button"
-                  disabled={busy}
-                  aria-current={id === activeId ? 'true' : undefined}
-                  onClick={() => void openConversation(id)}
-                  className="block w-full cursor-pointer rounded-md px-3 py-2 text-left hover:bg-[#2a3231] focus-visible:outline-2 focus-visible:outline-teal-300 aria-current:bg-[#252e2c] disabled:opacity-50"
-                >
-                  <span className="block truncate text-xs font-medium">{title}</span>
-                  <time dateTime={updated_at} className="mt-1 block text-[11px] text-[#adb4b3]">
-                    {HISTORY_DATE.format(new Date(updated_at))}
-                  </time>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {historyList(history)}
           {localHistory.length > 0 && (
             <div className="mt-4 border-t border-[#303436] pt-3">
               <p className="mb-1 text-xs text-[#adb4b3]">Earlier chats on this browser</p>
-              <ul className="grid gap-1.5">
-                {localHistory.map((conversation) => (
-                  <li key={conversation.id}>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => openLocalConversation(conversation)}
-                      className="block w-full cursor-pointer rounded-md px-3 py-2 text-left text-xs hover:bg-[#2a3231] focus-visible:outline-2 focus-visible:outline-teal-300 disabled:opacity-50"
-                    >
-                      <span className="block truncate">{conversation.messages[0].content || conversation.messages[0].attachment_name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {historyList(localHistory)}
             </div>
           )}
         </TabsContent>
